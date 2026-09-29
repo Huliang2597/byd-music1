@@ -153,6 +153,32 @@ def smoke_flower(out, size=900):
     Image.fromarray((np.clip(rgba, 0, 1) * 255).astype(np.uint8)).save(os.path.join(out, "smoke_flower.png"))
 
 
+def white_flower(out, size=900):
+    """心之花：一朵发光的白色重瓣花（矢量玫瑰渲染后做成柔和的白色 + 瓣缘起皱）"""
+    from playwright.sync_api import sync_playwright
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}">' +
+           rose.rose_svg("wf", size / 2, size / 2, size * 0.33, "gray", 1.0, 0.6, 0.88, 77, leaves=False) + '</svg>')
+    with sync_playwright() as pw:
+        b = pw.chromium.launch()
+        page = b.new_page(viewport={"width": size, "height": size})
+        page.set_content(f'<html><body style="margin:0;background:transparent">{svg}</body></html>')
+        png = page.screenshot(omit_background=True)
+        b.close()
+    im = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_UNCHANGED).astype(np.float32) / 255
+    x, y = np.meshgrid(np.arange(size, dtype=np.float32), np.arange(size, dtype=np.float32))
+    dx = (F.fbm(size, size, 81, base=14) - 0.5) * 22  # 瓣缘起皱
+    dy = (F.fbm(size, size, 82, base=14) - 0.5) * 22
+    im = cv2.remap(im, x + dx, y + dy, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+    lum = im[..., :3] @ np.array([0.114, 0.587, 0.299], np.float32)
+    lo, hi = np.percentile(lum[im[..., 3] > 0.5], [5, 95])
+    shade = 0.32 + 0.6 * np.clip((lum - lo) / (hi - lo + 1e-4), 0, 1) ** 0.8
+    shade = cv2.GaussianBlur(shade, (0, 0), 1.6)
+    rgba = np.zeros((size, size, 4), np.float32)
+    rgba[..., :3] = shade[..., None]
+    rgba[..., 3] = cv2.GaussianBlur(im[..., 3], (0, 0), 1.8)
+    Image.fromarray((np.clip(rgba, 0, 1) * 255).astype(np.uint8)).save(os.path.join(out, "white_flower.png"))
+
+
 def peonies(out):
     """永远之歌左下角的水彩牡丹：先用矢量玫瑰摆一丛，再做水彩化（晕染、边缘积色、颗粒）"""
     from playwright.sync_api import sync_playwright
@@ -237,6 +263,7 @@ def main():
     foliage(out, "foliage_ice.png", False, 71, count=24)
     foliage(out, "foliage_side.png", True, 72, h=900, count=26)
     smoke_flower(out)
+    white_flower(out)
     peonies(out)
     teal_silhouettes(out)
     print("ok", sorted(os.listdir(out)))
