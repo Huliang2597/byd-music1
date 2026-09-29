@@ -24,6 +24,7 @@ import numpy as np
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import post as P  # noqa: E402
 import rose  # noqa: E402
 
 W, H, FPS = 1920, 1080, 60
@@ -291,6 +292,17 @@ class EffectPV:
         return "".join(out)
 
     def flower(self, t, u, colored):
+        if os.path.exists(os.path.join(self.fx, "bouquet_ink.png")):
+            # 主体用封面花束：墨色从中心晕开 → 满开时换成粉米暖调
+            w, h = 1148, 784
+            s = 1 + 0.05 * ease_io(u / 3) + 0.012 * self.pulse(t)
+            tr = f'transform="translate({CX} {CY}) scale({s:.4f}) translate({-CX} {-CY})"'
+            if colored:
+                return (f'<circle cx="{CX}" cy="{CY}" r="520" fill="url(#hWarm)"/>' +
+                        self.img("bouquet_warm.png", CX - w / 2, CY - h / 2, w, h, tr))
+            r = 80 + 900 * ease_out(u / 1.6)
+            return (f'<mask id="spread"><circle cx="{CX}" cy="{CY}" r="{n(r)}" fill="url(#hInk)"/></mask>'
+                    f'<g mask="url(#spread)">{self.img("bouquet_ink.png", CX - w / 2, CY - h / 2, w, h, tr)}</g>')
         g = 1.0 if colored else 0.1 + 0.9 * ease_out(u / 1.9)
         R = 300 * (1 + 0.015 * self.pulse(t))
         body = rose.rose_svg("heart", CX, CY, R, "bloom" if colored else "ink", g, t * 0.07, 1.0, 11)
@@ -564,6 +576,7 @@ class EffectPV:
             '<radialGradient id="hStar"><stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/><stop offset="0.25" stop-color="#dff2ff" stop-opacity="0.35"/>'
             '<stop offset="1" stop-color="#bfe6ff" stop-opacity="0"/></radialGradient>'
             '<radialGradient id="hWarm"><stop offset="0" stop-color="#fffaf4" stop-opacity="0.95"/><stop offset="1" stop-color="#ffe9e4" stop-opacity="0"/></radialGradient>'
+            '<radialGradient id="hInk"><stop offset="0.8" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>'
             '</defs>')
 
     def svg(self, i):
@@ -600,8 +613,9 @@ class EffectPV:
 
 
 class Renderer:
-    def __init__(self, frame, fonts_dir, workdir):
+    def __init__(self, frame, fonts_dir, workdir, post=True):
         self.frame_src = frame
+        self.post = post
         css = []
         for pkg, files in FONTS:
             base = [d for d in os.listdir(fonts_dir) if d.startswith(f"fontsource-{pkg}-") and os.path.isdir(os.path.join(fonts_dir, d))][0]
@@ -628,7 +642,10 @@ class Renderer:
             Promise.all(urls.map(u => new Promise(r => { const im = new Image(); im.onload = im.onerror = r; im.src = u; })))
               .then(() => requestAnimationFrame(() => requestAnimationFrame(() => res(true))));
         })""", self.frame_src.svg(i))
-        return self.page.screenshot(type="jpeg", quality=100)
+        shot = self.page.screenshot(type="jpeg", quality=100)
+        if self.post:
+            shot = P.process(shot, self.frame_src.scene(i / FPS)[0], i)
+        return shot
 
     def close(self):
         self.browser.close()
@@ -643,7 +660,7 @@ def build(args):
 
 def worker(args, a, b, seg):
     pv = build(args)
-    r = Renderer(pv, args.fonts, os.path.dirname(os.path.abspath(args.output)))
+    r = Renderer(pv, args.fonts, os.path.dirname(os.path.abspath(args.output)), not args.no_post)
     proc = subprocess.Popen([imageio_ffmpeg.get_ffmpeg_exe(), "-loglevel", "error", "-y", "-f", "image2pipe", "-framerate", str(FPS),
                              "-c:v", "mjpeg", "-i", "-", "-c:v", "libx264", "-preset", "slow", "-crf", "16", "-pix_fmt", "yuv420p",
                              "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", seg], stdin=subprocess.PIPE)
@@ -666,12 +683,13 @@ def main():
     ap.add_argument("--end", type=float, default=286.0)
     ap.add_argument("--still", default=None)
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--no-post", action="store_true", help="不加合成后期（对比用）")
     args = ap.parse_args()
     args.fonts = os.path.abspath(args.fonts)
     if args.still:
         pv = build(args)
         pv.t_in = None
-        r = Renderer(pv, args.fonts, os.path.dirname(os.path.abspath(args.output)))
+        r = Renderer(pv, args.fonts, os.path.dirname(os.path.abspath(args.output)), not args.no_post)
         for s in args.still.split(","):
             path = f"{os.path.splitext(args.output)[0]}_{float(s):07.2f}.jpg"
             with open(path, "wb") as f:

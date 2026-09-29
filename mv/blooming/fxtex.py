@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """effectpv.py 用的贴图：每个场景一张底图 + 前景剪影 + 花（全部用 numpy/PIL 程序化生成，只需跑一次）。
 
-用法: python3 fxtex.py <输出目录>（花先用 rose.py 渲成透明 PNG 放在 <输出目录>/roses）
+用法: python3 fxtex.py <输出目录> [封面.jpg]（花先用 rose.py 渲成透明 PNG 放在 <输出目录>/roses；给了封面就另出封面花束素材）
 """
 import math
 import os
@@ -237,8 +237,41 @@ def ice_fg(sprites, out):
     grass.save(os.path.join(out, "fg_ice.png"))
 
 
+def smoothstep(a, b, x):
+    t = np.clip((x - a) / (b - a), 0, 1)
+    return t * t * (3 - 2 * t)
+
+
+def cover_materials(cover, out):
+    """封面花束 → 两种调色的主体素材，边缘用噪声做成墨晕，化进底图里"""
+    im = Image.open(cover).convert("RGB").crop((360, 540, 1180, 1100))
+    w, h = im.size
+    im = im.resize((int(w * 1.4), int(h * 1.4)), Image.LANCZOS).filter(ImageFilter.UnsharpMask(2, 60, 2))
+    w, h = im.size
+    a = np.asarray(im, np.float32) / 255
+    x, y = grid(w, h)
+    d = np.sqrt(((x - 0.47) / 0.47) ** 2 + ((y - 0.52) / 0.5) ** 2)
+    mask = 1 - smoothstep(0.62, 1.0, d + (fbm(w, h, 31, base=4) - 0.5) * 0.45)
+    lum = a @ np.array([0.3, 0.59, 0.11], np.float32)
+    ink = np.clip((lum - 0.22) / 0.62, 0, 1) ** 1.25
+    rgba = np.zeros((h, w, 4), np.uint8)
+    rgba[..., :3] = (np.stack([ink * 0.97 + 0.02, ink * 0.965 + 0.02, ink * 0.95 + 0.02], -1) * 255).astype(np.uint8)
+    rgba[..., 3] = (mask * 255).astype(np.uint8)
+    Image.fromarray(rgba).save(os.path.join(out, "bouquet_ink.png"))
+    # 满开：保留原画的明暗，色相往粉米暖调推（青蓝 → 玫瑰粉）
+    shadow, mid, high = hexrgb("#4a1528"), hexrgb("#e08aa6"), hexrgb("#fff4ec")
+    t = np.clip((lum - 0.15) / 0.75, 0, 1)[..., None]
+    warm = np.where(t < 0.55, mix(np.broadcast_to(shadow, a.shape), mid, (t / 0.55)[..., 0]),
+                    mix(np.broadcast_to(mid, a.shape), high, ((t - 0.55) / 0.45)[..., 0]))
+    warm = mix(warm, a, np.full((h, w), 0.3, np.float32))
+    rgba[..., :3] = (np.clip(warm, 0, 1) * 255).astype(np.uint8)
+    Image.fromarray(rgba).save(os.path.join(out, "bouquet_warm.png"))
+
+
 def main():
     out = sys.argv[1]
+    if len(sys.argv) > 2:
+        cover_materials(sys.argv[2], out)
     sprites = os.path.join(out, "roses")
     os.makedirs(sprites, exist_ok=True)
     rose.render_pngs(sprites)
