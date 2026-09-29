@@ -220,9 +220,9 @@ class RefPV(E.EffectPV):
         out.append('</g>')
         return "".join(out)
 
-    def sc_mandala(self, t, u):
+    def sc_mandala(self, t, u, hold=0.75):
         s = 0.92 + 0.08 * ease_out(u / 1.5)
-        burst = 0.75 + 0.25 * math.exp(-u / 0.6)
+        burst = hold + (1 - hold) * math.exp(-u / 0.6)
         under = [self.plate_img("mauve.jpg", u), self.mandala_svg(t, s),
                  f'<g transform="translate({CX} {CY}) rotate({t * 6:.2f})" opacity="{0.32 * burst:.3f}" style="mix-blend-mode:screen">' +
                  "".join(f'<path d="M0 0 L{n(12 * math.cos(math.radians(a + 90)))} {n(12 * math.sin(math.radians(a + 90)))} '
@@ -471,7 +471,7 @@ class RefPV(E.EffectPV):
         s0, name = self.scenes[k]
         s1 = self.scenes[k + 1][0] if k + 1 < len(self.scenes) else 1e9
         start = s0 if s0 > -1e8 else (self.t_in if self.t_in is not None else 256.9)
-        end = s1 if s1 < 1e8 else start + 9
+        end = s1 if s1 < 1e8 else getattr(self, "last_end", start + 9)
         under, over = getattr(self, "sc_" + name)(t, t - start)
         p = (t - start) / max(0.5, end - start)  # 匀速运镜：转场时两个镜头都在动
         dx0, dy0, dx1, dy1, z0, z1, r0, r1 = CAM[name]
