@@ -39,19 +39,25 @@ def sine_io(x):
     return 0.5 - 0.5 * math.cos(math.pi * x)
 
 
+# 进入每一幕时用的转场（类型, 时长秒）
+TRANS = {"gray": ("defocus", 1.0), "smoke": ("dark", 1.1), "mandala": ("bloom", 1.0), "ice": ("zoom", 1.0),
+         "navy": ("drift", 1.2), "line": ("dark", 1.0), "score": ("defocus", 1.0), "teal": ("defocus", 1.2)}
+GB = (1, 2, 3, 4, 6, 8, 10, 13)
+
+
 SUB = {"warm": "#fff6ea", "gray": "#eef1f4", "smoke": "#e8e8e8", "mandala": "#4a3434", "ice": "#2f3d48",
        "navy": "#e6eef8", "line": "#e8e8e8", "score": "#333333", "teal": "#e8f0f0"}
 
 P.GRADE.update({
-    "warm": dict(th=0.55, bloom=0.9, halo=(1.0, 0.85, 0.7), grain=0.02, lift=(0.03, 0.02, 0.01), gain=(1.0, 0.97, 0.92)),
-    "gray": dict(th=0.5, bloom=0.6, halo=(0.95, 0.97, 1.0), grain=0.022, lift=(0.02, 0.02, 0.025), gain=(0.98, 0.99, 1.0)),
-    "smoke": dict(th=0.75, bloom=0.55, halo=(1.0, 1.0, 1.0), grain=0.02, lift=(0.0, 0.0, 0.0), gain=(1.0, 1.0, 1.0)),
-    "mandala": dict(th=0.6, bloom=0.95, halo=(1.0, 0.9, 0.88), grain=0.02, lift=(0.02, 0.01, 0.01), gain=(1.0, 0.98, 0.97)),
-    "ice": dict(th=0.6, bloom=0.8, halo=(0.85, 0.93, 1.0), grain=0.018, lift=(0.0, 0.01, 0.02), gain=(0.98, 1.0, 1.02)),
-    "navy": dict(th=0.45, bloom=1.0, halo=(0.8, 0.9, 1.0), grain=0.02, lift=(0.0, 0.005, 0.015), gain=(1.0, 1.0, 1.02)),
-    "line": dict(th=0.5, bloom=0.8, halo=(1.0, 1.0, 1.0), grain=0.02, lift=(0.01, 0.01, 0.012), gain=(1.0, 1.0, 1.0)),
-    "score": dict(th=0.9, bloom=0.2, halo=(1.0, 1.0, 1.0), grain=0.015, lift=(0.0, 0.0, 0.0), gain=(1.0, 1.0, 1.0)),
-    "teal": dict(th=0.62, bloom=0.7, halo=(0.9, 1.0, 1.0), grain=0.02, lift=(0.01, 0.015, 0.015), gain=(0.98, 1.0, 1.0)),
+    "warm": dict(th=0.72, bloom=0.45, halo=(1.0, 0.85, 0.7), grain=0.02, lift=(0.02, 0.012, 0.005), gain=(0.97, 0.94, 0.9)),
+    "gray": dict(th=0.62, bloom=0.4, halo=(0.95, 0.97, 1.0), grain=0.022, lift=(0.015, 0.015, 0.02), gain=(0.97, 0.98, 1.0)),
+    "smoke": dict(th=0.8, bloom=0.4, halo=(1.0, 1.0, 1.0), grain=0.02, lift=(0.0, 0.0, 0.0), gain=(1.0, 1.0, 1.0)),
+    "mandala": dict(th=0.75, bloom=0.45, halo=(1.0, 0.9, 0.88), grain=0.02, lift=(0.01, 0.005, 0.005), gain=(0.97, 0.95, 0.95)),
+    "ice": dict(th=0.72, bloom=0.4, halo=(0.85, 0.93, 1.0), grain=0.018, lift=(0.0, 0.005, 0.015), gain=(0.96, 0.98, 1.0)),
+    "navy": dict(th=0.6, bloom=0.55, halo=(0.8, 0.9, 1.0), grain=0.02, lift=(0.0, 0.005, 0.012), gain=(1.0, 1.0, 1.02)),
+    "line": dict(th=0.6, bloom=0.45, halo=(1.0, 1.0, 1.0), grain=0.02, lift=(0.008, 0.008, 0.01), gain=(1.0, 1.0, 1.0)),
+    "score": dict(th=0.92, bloom=0.15, halo=(1.0, 1.0, 1.0), grain=0.015, lift=(0.0, 0.0, 0.0), gain=(0.97, 0.97, 0.97)),
+    "teal": dict(th=0.72, bloom=0.4, halo=(0.9, 1.0, 1.0), grain=0.02, lift=(0.008, 0.012, 0.012), gain=(0.97, 1.0, 1.0)),
 })
 
 
@@ -120,10 +126,10 @@ class RefPV(E.EffectPV):
         under = [self.plate_img("warm.jpg", u), self.arc(870, 470, 300, "#6b4030", 0.5, 2.2, 0.62, 110 + 6 * u),
                  self.motes(t, "#ffe2b0", 0.9, 46)]
         p = self.pulse(t, 4)
-        over = [f'<ellipse cx="1420" cy="190" rx="900" ry="540" fill="url(#hWarmLight)" opacity="{0.72 + 0.1 * p:.3f}"/>',
-                f'<ellipse cx="900" cy="235" rx="1250" ry="16" fill="#fffaf2" opacity="0.75" filter="url(#bl8)"/>',
-                f'<ellipse cx="900" cy="235" rx="1150" ry="70" fill="#fff4e4" opacity="0.28" filter="url(#bl20)"/>',
-                f'<rect x="{W - 520}" y="0" width="520" height="{H}" fill="url(#leakR)" opacity="0.5"/>']
+        over = [f'<ellipse cx="1420" cy="190" rx="900" ry="540" fill="url(#hWarmLight)" opacity="{0.5 + 0.06 * p:.3f}"/>',
+                f'<ellipse cx="900" cy="235" rx="1250" ry="16" fill="#fffaf2" opacity="0.5" filter="url(#bl8)"/>',
+                f'<ellipse cx="900" cy="235" rx="1150" ry="70" fill="#fff4e4" opacity="0.2" filter="url(#bl20)"/>',
+                f'<rect x="{W - 520}" y="0" width="520" height="{H}" fill="url(#leakR)" opacity="0.3"/>']
         return "".join(under), "".join(over)
 
     def sc_gray(self, t, u):
@@ -218,12 +224,12 @@ class RefPV(E.EffectPV):
         s = 0.92 + 0.08 * ease_out(u / 1.5)
         burst = 0.75 + 0.25 * math.exp(-u / 0.6)
         under = [self.plate_img("mauve.jpg", u), self.mandala_svg(t, s),
-                 f'<g transform="translate({CX} {CY}) rotate({t * 6:.2f})" opacity="{0.55 * burst:.3f}" style="mix-blend-mode:screen">' +
+                 f'<g transform="translate({CX} {CY}) rotate({t * 6:.2f})" opacity="{0.32 * burst:.3f}" style="mix-blend-mode:screen">' +
                  "".join(f'<path d="M0 0 L{n(12 * math.cos(math.radians(a + 90)))} {n(12 * math.sin(math.radians(a + 90)))} '
                          f'L{n((520 + 260 * ((a * 37) % 100) / 100) * math.cos(math.radians(a)))} {n((520 + 260 * ((a * 37) % 100) / 100) * math.sin(math.radians(a)))} Z" fill="#fff6f0"/>'
                          for a in range(0, 360, 12)) + '</g>',
-                 f'<circle cx="{CX}" cy="{CY}" r="560" fill="url(#hWhite)" opacity="{0.8 * burst:.3f}"/>',
-                 f'<circle cx="{CX}" cy="{CY}" r="{n(330 * (1 + 0.012 * self.pulse(t)))}" fill="#fffaf6" fill-opacity="{0.78 * burst:.3f}" '
+                 f'<circle cx="{CX}" cy="{CY}" r="560" fill="url(#hWhite)" opacity="{0.42 * burst:.3f}"/>',
+                 f'<circle cx="{CX}" cy="{CY}" r="{n(330 * (1 + 0.012 * self.pulse(t)))}" fill="#fffaf6" fill-opacity="{0.45 * burst:.3f}" '
                  f'stroke="#f7ece8" stroke-width="2"/>']
         return "".join(under), ""
 
@@ -235,7 +241,7 @@ class RefPV(E.EffectPV):
             under.append(f'<circle cx="{n(x)}" cy="{n(y)}" r="{n(1.5 + 3.5 * d[4] ** 2)}" fill="#ffffff" opacity="{0.55 + 0.4 * d[1]:.3f}"/>')
         under.append(self.img("foliage_ice.png", -140 - 10 * u, H - 820, 2200, 834, 'opacity="0.55" filter="url(#bl8)"'))
         under.append(self.img("foliage_ice.png", -60 - 22 * u, H - 700, 2112, 800, ""))
-        over = [f'<rect y="{H - 300}" width="{W}" height="300" fill="url(#hazeUp)" opacity="0.5"/>']
+        over = [f'<rect y="{H - 300}" width="{W}" height="300" fill="url(#hazeUp)" opacity="0.35"/>']
         return "".join(under), "".join(over)
 
     def sc_navy(self, t, u):
@@ -246,7 +252,7 @@ class RefPV(E.EffectPV):
         sx, sy = 960, 250
         p = self.pulse(t, 3)
         sm = math.exp(-u / 0.9)
-        under += [f'<ellipse cx="{sx}" cy="{sy}" rx="{n(200 * (1 + 0.3 * sm))}" ry="{n(110 * (1 + 0.3 * sm))}" fill="url(#hWhite)" opacity="0.75"/>',
+        under += [f'<ellipse cx="{sx}" cy="{sy}" rx="{n(200 * (1 + 0.3 * sm))}" ry="{n(110 * (1 + 0.3 * sm))}" fill="url(#hWhite)" opacity="0.55"/>',
                   f'<ellipse cx="{sx}" cy="{sy}" rx="{n(48 + 6 * p)}" ry="{n(15 + 3 * p)}" fill="#ffffff" filter="url(#bl8)"/>',
                   f'<ellipse cx="{sx}" cy="{sy}" rx="{n(260 * (1 + 0.2 * sm))}" ry="3" fill="#ffffff" opacity="0.7" filter="url(#bl3)"/>',
                   f'<circle cx="{sx}" cy="{sy}" r="7" fill="#ffffff"/>',
@@ -282,12 +288,28 @@ class RefPV(E.EffectPV):
         under.append(f'<text x="120" y="1015" font-family="{E.MUSIC}" font-size="760" fill="#121212" text-anchor="middle" '
                      f'opacity="{rise:.3f}">{E.CLEF}</text>')
         b = self.beat(t) - self.beat(self.span_start("score"))
-        for k, (ch, x, y, fs, col) in enumerate((("♪", 830, 700, 380, "#1a1a1a"), ("♫", 1480, 740, 280, "#6a6a6a"))):
-            a = sine_io((b - 1 - 3 * k) / 0.9)
-            if a > 0:
-                sc = 1.12 - 0.12 * a
-                under.append(f'<text x="{x}" y="{y}" font-family="{E.MUSIC}" font-size="{fs}" fill="{col}" text-anchor="middle" opacity="{a:.3f}" '
-                             f'transform="translate({x} {y - fs * 0.3}) scale({sc:.3f}) translate({-x} {-(y - fs * 0.3)})">{ch}</text>')
+        for m in range(12):  # 沿五线谱从右往左流动的小音符
+            ph = (u * 0.075 + m / 12) % 1.0
+            x = W + 120 - ph * (W + 240)
+            line = m % 5
+            y = 900 - (x + 80) / (W + 160) * 760 + 90 * math.sin(x / W * math.pi * 1.4 + 0.3 + t * 0.25) + (line - 2) * 92 - 46 * (m % 2)
+            a = 0.5 * math.sin(math.pi * ph) * rise
+            bob = 5 * math.sin(t * 2.2 + m)
+            out_ch = "\u2669" if m % 3 else "\u266A"
+            under.append(f'<text x="{n(x)}" y="{n(y + bob)}" font-family="{E.MUSIC}" font-size="92" fill="#6f6f6f" text-anchor="middle" '
+                         f'opacity="{a:.3f}" transform="rotate({6 * math.sin(t * 1.5 + m):.2f} {n(x)} {n(y)})">{out_ch}</text>')
+        for k, (ch, x, y, fs, col) in enumerate((("\u266A", 830, 700, 380, "#1a1a1a"), ("\u266B", 1480, 740, 280, "#6a6a6a"))):
+            tk = u - (1 + 3 * k) * self.period
+            if tk <= 0:
+                continue
+            a = sine_io(tk / 0.7)
+            sc = 0.82 + 0.18 * ease_out(tk / 0.45) + 0.07 * math.exp(-4 * tk) * math.sin(13 * tk)  # 弹一下再稳住
+            bob = 9 * math.sin(math.pi * b / 2 + k * 1.3)  # 两拍一个起伏
+            rot = 3.5 * math.sin(math.pi * b / 4 + k)
+            cy = y - fs * 0.3
+            under.append(f'<text x="{x}" y="{n(y + bob)}" font-family="{E.MUSIC}" font-size="{fs}" fill="{col}" text-anchor="middle" '
+                         f'opacity="{a:.3f}"{self.blur_filter(5 * (1 - a), None)} '
+                         f'transform="rotate({rot:.2f} {x} {n(cy)}) translate({x} {n(cy)}) scale({sc:.3f}) translate({-x} {n(-cy)})">{ch}</text>')
         under.append(self.img("peonies.png", -80, 330, 1020, 850, f'opacity="{sine_io(u / 1.2):.3f}"'))
         return "".join(under), ""
 
@@ -371,31 +393,46 @@ class RefPV(E.EffectPV):
         for k, (t0, text, x, y, size, style) in enumerate(self.chunks):
             if not (s0 <= t0 < s1) or t < t0 - 0.01:
                 continue
-            fo = 1 - sine_io((t - self.chunk_end(k) + 0.15) / 0.55)  # 出场：虚化、上漂、淡出
-            if fo <= 0:
-                continue
+            t_end = self.chunk_end(k)
             st = TEXT[style]
             stroke = f' stroke="{st["stroke"]}" stroke-width="{st["sw"]}"' if "stroke" in st else ""
-            life = t - t0
-            spacing = size * (1.5 if style == "gray" else 1.02) * (1 + 0.035 * min(life, 4) / 4)  # 字距缓慢展开
-            drift = -6 * life - 16 * (1 - fo)
+            nch = len(text)
+            spacing = size * (1.5 if style == "gray" else 1.02) * (1 + 0.03 * sine_io((t - t0) / 3))
+            base = f'text-anchor="middle" font-family="{E.BRUSH}" font-size="{size}" fill="{st["fill"]}"{stroke}'
+            glint = self.pulse(t, 3) if style in ("white", "outline") else 0.0
             for j, ch in enumerate(text):
-                tj = t - t0 - j * 0.09
-                a = sine_io(tj / 0.75)
-                if a <= 0:
+                tj = t - t0 - j * self.period * 0.5  # 每个字错开半拍
+                if tj <= 0:
                     continue
-                cx = x + (j - (len(text) - 1) / 2) * spacing
-                cy = y + 26 * (1 - ease_out(tj / 0.9)) + drift
-                sc = 1.06 - 0.06 * a + 0.03 * (1 - fo)
+                fo = 1 - sine_io((t - (t_end - 0.3 + j * 0.07)) / 0.6)  # 逐字离场
+                if fo <= 0:
+                    continue
+                a = sine_io(tj / 0.7)
+                side = j - (nch - 1) / 2
+                cx = x + side * spacing + side * 16 * (1 - fo)
+                cy = y + 20 * (1 - ease_out(tj / 0.9)) - 4 * (t - t0) - 22 * (1 - fo) + 3 * math.sin(t * 1.1 + j * 1.7)
+                sc = 0.93 + 0.07 * ease_out(tj / 0.9) + 0.03 * (1 - fo)
                 op = st["op"] * a * fo
                 tr = f'translate({n(cx)} {n(cy)}) scale({sc:.3f}) translate({n(-cx)} {n(-cy)})'
-                base = f'text-anchor="middle" font-family="{E.BRUSH}" font-size="{size}" fill="{st["fill"]}"{stroke}'
-                filt = self.blur_filter(7 * (1 - a) + 6 * (1 - fo), st["filt"])
-                out.append(f'<text x="{n(cx)}" y="{n(cy + size * 0.36)}" {base}{filt} opacity="{op:.3f}" transform="{tr}">{ch}</text>')
+                filt = self.blur_filter(6 * (1 - a) + 5 * (1 - fo), st["filt"])
+                # 自上而下的柔边显影，像墨一笔写下来
+                w = ease_io(tj / 0.6)
+                top, hgt = cy - size * 0.62, size * 1.3
+                edge = top + hgt * (1.3 * w - 0.15)
+                mid = f"lw{k}_{j}"
+                out.append(f'<mask id="{mid}" maskUnits="userSpaceOnUse"><linearGradient id="{mid}g" gradientUnits="userSpaceOnUse" x1="0" '
+                           f'y1="{n(edge - size * 0.3)}" x2="0" y2="{n(edge)}"><stop offset="0" stop-color="#fff"/>'
+                           f'<stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>'
+                           f'<rect x="{n(cx - size * 1.5)}" y="{n(top - size)}" width="{n(size * 3)}" height="{n(hgt + size * 2)}" fill="url(#{mid}g)"/></mask>'
+                           f'<g mask="url(#{mid})"><text x="{n(cx)}" y="{n(cy + size * 0.36)}" {base}{filt} opacity="{op:.3f}" transform="{tr}">{ch}</text>')
+                if glint > 0.02 and a > 0.99 and fo > 0.99:  # 随拍子的一点微光
+                    out.append(f'<text x="{n(cx)}" y="{n(cy + size * 0.36)}" {base} filter="url(#fg3)" opacity="{0.35 * glint * op:.3f}" '
+                               f'transform="{tr}">{ch}</text>')
+                out.append('</g>')
                 if style == "echo":  # 左右残影，缓慢呼吸
                     for sgn in (-1, 1):
                         dx = sgn * size * (0.5 + 0.18 * math.sin(t * 1.3 + j))
-                        out.append(f'<text x="{n(cx + dx)}" y="{n(cy + size * 0.36)}" {base} filter="url(#fb3)" opacity="{op * 0.25:.3f}" '
+                        out.append(f'<text x="{n(cx + dx)}" y="{n(cy + size * 0.36)}" {base} filter="url(#fb3)" opacity="{op * 0.22:.3f}" '
                                    f'transform="{tr}">{ch}</text>')
         return "".join(out)
 
@@ -412,18 +449,6 @@ class RefPV(E.EffectPV):
                        f'letter-spacing="2" fill="{SUB[name]}" opacity="{0.9 * a:.3f}"{self.blur_filter(4 * (1 - a), None)}>{zh}</text>')
         return "".join(out)
 
-    def flash(self, t):
-        """柔和的曝光过渡：边界前 0.15s 起势，之后指数回落"""
-        op = 0.0
-        for s, name in self.scenes[1:]:
-            dt = t - s
-            strength, tau = {"mandala": (0.85, 0.45), "teal": (0.6, 0.5), "smoke": (0.5, 0.3)}.get(name, (0.4, 0.3))
-            if -0.15 < dt < 0:
-                op = max(op, strength * sine_io((dt + 0.15) / 0.15))
-            elif 0 <= dt < 2.5:
-                op = max(op, strength * math.exp(-dt / tau))
-        return op
-
     DEFS = E.EffectPV.DEFS.replace('</defs>', (
         '<filter id="bl3" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>'
         '<filter id="bl8" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="8"/></filter>'
@@ -438,40 +463,61 @@ class RefPV(E.EffectPV):
                   f'<filter id="fg{b}" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="{b}" result="s"/>'
                   f'<feGaussianBlur in="s" stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/>'
                   f'<feMergeNode in="s"/></feMerge></filter>' for b in (1, 2, 3, 5, 8)) +
+        "".join(f'<filter id="gb{b}" x="-3%" y="-3%" width="106%" height="106%"><feGaussianBlur stdDeviation="{b}"/></filter>'
+                  for b in GB) +
         '</defs>'))
 
-    def scene_group(self, k, t, op):
+    def scene_group(self, k, t, op, blur=0.0, zoom=1.0, dy=0.0):
         s0, name = self.scenes[k]
         s1 = self.scenes[k + 1][0] if k + 1 < len(self.scenes) else 1e9
         start = s0 if s0 > -1e8 else (self.t_in if self.t_in is not None else 256.9)
         end = s1 if s1 < 1e8 else start + 9
         under, over = getattr(self, "sc_" + name)(t, t - start)
-        p = (t - start) / max(0.5, end - start)  # 匀速运镜：交叉溶解时两个镜头都在动
+        p = (t - start) / max(0.5, end - start)  # 匀速运镜：转场时两个镜头都在动
         dx0, dy0, dx1, dy1, z0, z1, r0, r1 = CAM[name]
-        z = lerp(z0, z1, p) * (1 + 0.005 * self.pulse(t, 3))
-        cam = (f'translate({n(CX + lerp(dx0, dx1, p))} {n(CY + lerp(dy0, dy1, p))}) rotate({lerp(r0, r1, p):.3f}) '
+        z = lerp(z0, z1, p) * zoom * (1 + 0.004 * self.pulse(t, 3))
+        cam = (f'translate({n(CX + lerp(dx0, dx1, p))} {n(CY + lerp(dy0, dy1, p) + dy)}) rotate({lerp(r0, r1, p):.3f}) '
                f'scale({z:.4f}) translate({-CX} {-CY})')
         body = f'<g transform="{cam}">{under}{self.lyrics_for(t, s0, s1)}{over}</g>{self.subtitle_for(t, name)}'
-        return body if op >= 0.999 else f'<g opacity="{op:.3f}">{body}</g>'
+        attrs = ""
+        if op < 0.999:
+            attrs += f' opacity="{op:.3f}"'
+        if blur >= 0.6:
+            attrs += f' filter="url(#gb{min(GB, key=lambda b: abs(b - blur))})"'
+        return f'<g{attrs}>{body}</g>' if attrs else body
+
+    def transition(self, j, kind, p, t):
+        a, b = j - 1, j
+        d = math.sin(math.pi * p)
+        if kind == "defocus":  # 前一幕虚掉，后一幕对上焦
+            return [self.scene_group(a, t, 1.0, blur=11 * p), self.scene_group(b, t, p, blur=11 * (1 - p))]
+        if kind == "dark":  # 经过一瞬暗场
+            return [self.scene_group(a, t, 1.0, blur=6 * d), self.scene_group(b, t, p, blur=6 * d),
+                    f'<rect width="{W}" height="{H}" fill="#000" opacity="{0.85 * d:.3f}"/>']
+        if kind == "bloom":  # 中心一团柔光把画面推开
+            return [self.scene_group(a, t, 1.0, blur=6 * p, zoom=1 + 0.08 * p), self.scene_group(b, t, p, blur=6 * (1 - p), zoom=1.06 - 0.06 * p),
+                    f'<circle cx="{CX}" cy="{CY}" r="{n(260 + 800 * p)}" fill="url(#hWhite)" opacity="{0.5 * d:.3f}"/>']
+        if kind == "zoom":  # 推进穿过前一幕
+            return [self.scene_group(a, t, 1.0, blur=9 * p, zoom=1 + 0.22 * p), self.scene_group(b, t, p, blur=9 * (1 - p), zoom=0.92 + 0.08 * p)]
+        if kind == "drift":  # 前一幕下沉，后一幕从上方落下
+            return [self.scene_group(a, t, 1.0, blur=5 * p, dy=170 * p), self.scene_group(b, t, p, blur=5 * (1 - p), dy=-170 * (1 - p))]
+        raise ValueError(kind)
 
     def svg(self, i):
         t = i / FPS
         k = max(j for j, (s, _) in enumerate(self.scenes) if t >= s)
-        s_cur = self.scenes[k][0]
-        s_next = self.scenes[k + 1][0] if k + 1 < len(self.scenes) else 1e9
-        TD = 0.28  # 交叉溶解的一半时长
-        if k > 0 and t - s_cur < TD:
-            layers = [self.scene_group(k - 1, t, 1.0), self.scene_group(k, t, sine_io((t - s_cur + TD) / (2 * TD)))]
-        elif s_next - t < TD:
-            layers = [self.scene_group(k, t, 1.0), self.scene_group(k + 1, t, sine_io((t - s_next + TD) / (2 * TD)))]
-        else:
+        layers = None
+        for j in range(1, len(self.scenes)):
+            b, name = self.scenes[j]
+            kind, D = TRANS[name]
+            if b - D / 2 <= t < b + D / 2:
+                layers = self.transition(j, kind, sine_io((t - b + D / 2) / D), t)
+                break
+        if layers is None:
             layers = [self.scene_group(k, t, 1.0)]
         out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" viewBox="0 0 {W} {H}">', self.DEFS] + layers
-        fl = self.flash(t)
-        if self.t_in is not None and t < self.t_in + 0.8:
-            fl = max(fl, 1 - sine_io((t - self.t_in) / 0.8))
-        if fl > 0.004:
-            out.append(f'<rect width="{W}" height="{H}" fill="#ffffff" opacity="{min(fl, 1):.3f}"/>')
+        if self.t_in is not None and t < self.t_in + 1.0:
+            out.append(f'<rect width="{W}" height="{H}" fill="#000" opacity="{1 - sine_io((t - self.t_in) / 1.0):.3f}"/>')
         if self.t_out is not None and t > self.t_out - 1.2:
             out.append(f'<rect width="{W}" height="{H}" fill="#000" opacity="{sine_io((t - self.t_out + 1.2) / 1.1):.3f}"/>')
         out.append(f'<rect width="{W}" height="{BAR}" fill="#000"/><rect y="{H - BAR}" width="{W}" height="{BAR}" fill="#000"/></svg>')
