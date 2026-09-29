@@ -814,11 +814,14 @@ def main():
     ap.add_argument("--still", default=None)
     ap.add_argument("--scale", type=int, default=100)
     ap.add_argument("--threads", type=int, default=0)
+    ap.add_argument("--samples", type=int, default=0)
     ap.add_argument("--part", default="0/1", help="i/n：只渲染第 i 份（并行用）")
     args = ap.parse_args()
     os.makedirs(args.outdir, exist_ok=True)
     pv = PV(args.features, args.fps)
     pv.scene.render.resolution_percentage = args.scale
+    if args.samples:
+        pv.scene.cycles.samples = args.samples
     if args.threads:
         pv.scene.render.threads_mode = "FIXED"
         pv.scene.render.threads = args.threads
