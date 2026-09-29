@@ -10,6 +10,7 @@ import sys
 LYRICS_CO = "Lcom/teamolline/qqlyrics/data/QQMusicApi$lyrics$2;"
 LYRIC_FIX = "Lcom/teamolline/qqlyrics/fix/LyricFix;"
 EXPORT_FIX = "Lcom/teamolline/qqlyrics/fix/ExportFix;"
+QM_CLIENT = "Lcom/teamolline/qqlyrics/fix/QmClient;"
 
 # 整个方法替换：{类: {方法签名行: 新方法体}}
 REPLACE = {
@@ -41,6 +42,17 @@ REPLACE = {
     iget-object v2, p0, {LYRICS_CO}->$id:Ljava/lang/String;
 
     invoke-static {{v0, v1, v2}}, {LYRIC_FIX}->fetch(Lcom/teamolline/qqlyrics/data/QQMusicApi;Ljava/lang/String;Ljava/lang/String;)Lcom/teamolline/qqlyrics/model/Lyrics;
+
+    move-result-object v0
+
+    return-object v0
+""",
+    },
+    "com/teamolline/qqlyrics/data/QQMusicApi.smali": {
+        ".method private final officialRequest(Ljava/lang/String;Ljava/lang/String;Lorg/json/JSONObject;)Lorg/json/JSONObject;": f"""
+    .locals 1
+
+    invoke-static {{p1, p2, p3}}, {QM_CLIENT}->request(Ljava/lang/String;Ljava/lang/String;Lorg/json/JSONObject;)Lorg/json/JSONObject;
 
     move-result-object v0
 
