@@ -40,23 +40,29 @@ javac --release 8 -nowarn -encoding UTF-8 -cp "$WORK/stubs" -d "$WORK/classes" $
 java -cp "$TOOLS/dx.jar" com.android.dx.command.Main --dex --min-sdk-version=24 \
   --output="$WORK/fix.dex" "$WORK/classes"
 
-echo "==> 重新打包"
-java -jar "$TOOLS/apktool.jar" b "$WORK/apk" -o "$WORK/unsigned.apk"
-python3 - "$WORK/unsigned.apk" "$WORK/fix.dex" <<'EOF'
-import sys, zipfile
-apk, dex = sys.argv[1], sys.argv[2]
-with zipfile.ZipFile(apk) as z:
-    names = set(z.namelist())
-n = 2
-while f"classes{n}.dex" in names:
-    n += 1
-with zipfile.ZipFile(apk, "a", zipfile.ZIP_DEFLATED) as z:
-    z.write(dex, f"classes{n}.dex")
-print(f"已加入 classes{n}.dex")
+echo "==> 重新汇编改动过的 dex"
+# apktool 在 apktool.yml 缺少 sdkInfo 时会按 API 15 生成 dex 035，
+# 而原 App 的 Kotlin/Compose 代码需要 dex 037（API 24），否则启动即闪退。
+python3 - "$WORK/apk/apktool.yml" <<'EOF'
+import re, sys
+p = sys.argv[1]
+s = open(p, encoding="utf-8").read()
+s = re.sub(r"^sdkInfo:.*$", "sdkInfo:\n  minSdkVersion: 24\n  targetSdkVersion: 35", s, count=1, flags=re.M)
+open(p, "w", encoding="utf-8").write(s)
 EOF
+java -jar "$TOOLS/apktool.jar" b "$WORK/apk" -o "$WORK/rebuilt.apk"
+
+echo "==> 组装 APK（除改动的 dex 外，其余文件与原版逐字节相同）"
+python3 "$HERE/assemble.py" "$SRC_APK" "$WORK/rebuilt.apk" "$WORK/fix.dex" "$WORK/unsigned.apk"
 
 echo "==> 对齐并签名"
+KS="$TOOLS/qqlyrics-fix.jks"
+if [ ! -f "$KS" ]; then
+  keytool -genkeypair -keystore "$KS" -storetype JKS -alias qqlyrics -keyalg RSA -keysize 2048 \
+    -validity 10000 -storepass qqlyrics -keypass qqlyrics -dname "CN=QQLyrics Fix, O=QQLyrics, C=CN"
+fi
 rm -rf "$WORK/signed"
-java -jar "$TOOLS/uber-apk-signer.jar" -a "$WORK/unsigned.apk" -o "$WORK/signed" --allowResign
+java -jar "$TOOLS/uber-apk-signer.jar" -a "$WORK/unsigned.apk" -o "$WORK/signed" \
+  --ks "$KS" --ksAlias qqlyrics --ksPass qqlyrics --ksKeyPass qqlyrics
 cp "$WORK"/signed/*.apk "$OUT_APK"
 echo "==> 完成: $OUT_APK"

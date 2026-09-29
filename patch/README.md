@@ -23,13 +23,16 @@ patch/build.sh 原版.apk                 # 输出 patch/out/QQLyrics-1.0.1-fix.
 patch/test/run.sh 原版.apk              # JVM 单元测试
 ```
 
-工具（apktool、dx、uber-apk-signer）会自动下载到 `patch/tools/`。
+工具（apktool、dx、uber-apk-signer）会自动下载到 `patch/tools/`，签名密钥第一次构建时生成在 `patch/tools/qqlyrics-fix.jks`（不入库）。
 
-修复版使用调试证书签名，和原版签名不同：安装前需要先卸载原版。
+打包时只替换改动过的 `classes3/5/6.dex` 并新增修复类的 dex，其余文件与原版逐字节相同（`assemble.py`）。
+
+修复版的签名和原版不同：安装前需要先卸载原版。
 
 ## 目录
 
 - `src/`：修复代码（`LyricFix` 负责获取、解码歌词并转换 QRC，`ExportFix` 负责保存文件时的命名）
 - `stubs/`：只用于编译的 Android / 原 App 类声明，不会打进 APK
 - `apply_smali.py`：修改原 APK 的 smali，让原方法调用修复代码
+- `assemble.py`：以原版 APK 为底组装新 APK
 - `test/`：单元测试与测试替身
