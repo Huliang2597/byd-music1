@@ -460,14 +460,14 @@ class Story:
                 f'{int(t // 60):02d}:{t % 60:05.2f} ◆ 185 BPM</text></g>')
 
 
-def stage_html(fonts_dir):
+def stage_html(fonts_dir, extra_warm=""):
     css = []
     for pkg, weights in [("noto-serif-jp", (500, 700, 900)), ("orbitron", (400, 700, 900)), ("zen-kaku-gothic-new", (500, 900))]:
         base = [d for d in os.listdir(fonts_dir) if d.startswith(f"fontsource-{pkg}-") and os.path.isdir(os.path.join(fonts_dir, d))][0]
         for w in weights:
             css.append(f'<link rel="stylesheet" href="file://{os.path.join(fonts_dir, base, "package", f"{w}.css")}">')
     warm = ("記憶の底で、光が瞬いたここは第零層。目を開け声を聴け層を越え昇れ躍れ叡の躍層まだ上へ咲け巡れ視よ跳べ智階駆がる"
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:—◆\"Ø., abcdefghijklmnopqrstuvwxyz")
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:—◆\"Ø., abcdefghijklmnopqrstuvwxyz/" + extra_warm)
     probes = "".join(f'<span style="font-family:{fam};font-weight:{w}">{warm}</span>'
                      for fam, ws in [(SERIF, (500, 700, 900)), (TECH, (400, 700, 900)), (SANS, (500, 900))] for w in ws)
     return ('<!doctype html><html><head><meta charset="utf-8">' + "".join(css) +

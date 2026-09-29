@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """音频分析：按 60fps 输出每帧的频谱、响度、鼓点等特征。
 
-用法: analyze.py <音频文件> <输出.npz>
+用法: analyze.py <音频文件> <输出.npz> [帧率，默认 60]
 """
 import sys
 
@@ -33,7 +33,9 @@ def normalize(x, lo=5, hi=99.5):
     return np.clip((x - a) / max(b - a, 1e-9), 0, 1)
 
 
-def main(path, out):
+def main(path, out, fps=60):
+    global FPS
+    FPS = fps
     audio, sr = sf.read(path, dtype="float32", always_2d=True)
     mono = audio.mean(axis=1)
     hop = sr / FPS
@@ -59,7 +61,8 @@ def main(path, out):
         power = spec ** 2
         bands[i] = [power[idx].mean() for idx in band_idx]
         bass[i] = power[bass_bins].mean()
-        rms[i] = np.sqrt(np.mean(seg[WIN // 2 - 367:WIN // 2 + 368] ** 2))
+        half = int(hop / 2)
+        rms[i] = np.sqrt(np.mean(seg[WIN // 2 - half:WIN // 2 + half + 1] ** 2))
         logspec = np.log1p(spec)
         if prev is not None:
             flux[i] = np.maximum(logspec - prev, 0).sum()
@@ -70,7 +73,7 @@ def main(path, out):
     norm = np.zeros_like(db)
     for b in range(N_BANDS):
         norm[:, b] = normalize(db[:, b], 20, 99.7)
-    spectrum = np.stack([smooth_decay(norm[:, b], 0.86) for b in range(N_BANDS)], axis=1)
+    spectrum = np.stack([smooth_decay(norm[:, b], 0.86 ** (60 / FPS)) for b in range(N_BANDS)], axis=1)
 
     # 低音鼓点：低频能量的正向变化
     bass_db = 10 * np.log10(bass + 1e-10)
@@ -80,13 +83,13 @@ def main(path, out):
     kicks = []
     last = -999
     for i in range(1, n_frames - 1):
-        if rise[i] > thresh[i] and rise[i] >= rise[i - 1] and rise[i] >= rise[i + 1] and i - last >= 12 and bass_n[i] > 0.45:
+        if rise[i] > thresh[i] and rise[i] >= rise[i - 1] and rise[i] >= rise[i + 1] and i - last >= int(0.2 * FPS) and bass_n[i] > 0.45:
             kicks.append(i)
             last = i
     kick_env = np.zeros(n_frames, np.float32)
     for k in kicks:
         kick_env[k] = 1.0
-    kick_env = smooth_decay(kick_env, 0.88)
+    kick_env = smooth_decay(kick_env, 0.88 ** (60 / FPS))
 
     # 整体强度：约 1.5 秒平滑的响度
     loud = normalize(20 * np.log10(rms + 1e-6), 5, 99)
@@ -126,6 +129,6 @@ def main(path, out):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         sys.exit(__doc__)
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], int(sys.argv[3]) if len(sys.argv) == 4 else 60)
