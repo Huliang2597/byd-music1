@@ -2,13 +2,13 @@
 """《Blooming Planet》叙事 PV：照参考特效谱的镜头语言重做（SVG → Chromium → 1080p60）。
 
 不是把画面做成 ADOFAI，而是借它的叙事手法：遮幅宽银幕、每句歌词一个单色调场景、毛笔大字、
-底部小号手写翻译、贯穿画面的丝带与细圆环、低调的小路和两颗光球、落在重拍上的过曝白闪。
+底部小号手写翻译、贯穿画面的丝带与细圆环、落在重拍上的过曝白闪。「我」和「君」是两朵玫瑰。
 试片段落 4:17–4:46（最后一段副歌 + 片尾），剧情见 STORY.md。
 
 用法:
-  effectpv.py <fx贴图目录> <素材目录> <音频> <歌词.lrc> <feat60.npz> <fonts目录> <输出.mp4>
+  effectpv.py <fx贴图目录> <音频> <歌词.lrc> <feat60.npz> <fonts目录> <输出.mp4>
               [--start 256.9 --end 286] [--still 秒,...] [--workers 4]
-（fx 贴图由 fxtex.py 生成，素材目录是 sprites.py 的输出）
+（fx 贴图由 fxtex.py 生成；画面里的花都是 rose.py 的矢量玫瑰）
 """
 import argparse
 import math
@@ -22,6 +22,9 @@ from multiprocessing import Process
 import imageio_ffmpeg
 import numpy as np
 from playwright.sync_api import sync_playwright
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rose  # noqa: E402
 
 W, H, FPS = 1920, 1080, 60
 CX, CY = W / 2, H / 2
@@ -37,7 +40,6 @@ FONTS = [("noto-serif-jp", ["500", "700"]), ("yuji-syuku", ["400"]), ("long-cang
          ("cormorant-garamond", ["500", "500-italic", "600-italic"]), ("noto-music", ["400"])]
 PROBES = [(SERIF, 500, "normal"), (SERIF, 700, "normal"), (BRUSH, 400, "normal"), (HAND, 400, "normal"),
           (LOGO, 500, "normal"), (LOGO, 500, "italic"), (LOGO, 600, "italic"), (MUSIC, 400, "normal")]
-SP = 62  # 小路格距（px）
 
 # 每个场景的调色：歌词墨色 / 描边 / 光晕滤镜 / 翻译字色 / 线条色
 STYLE = {
@@ -114,8 +116,8 @@ def bezier(P, s):
 
 
 class EffectPV:
-    def __init__(self, fx, sprites, lrc, features):
-        self.fx, self.sprites = os.path.abspath(fx), os.path.abspath(sprites)
+    def __init__(self, fx, lrc, features):
+        self.fx = os.path.abspath(fx)
         f = np.load(features)
         self.kick = f["kick"]
         self.phase = float(f["beat_phase"]) / FPS
@@ -131,24 +133,22 @@ class EffectPV:
         self.scenes = [(-1e9, "sepia"), (s_rain, "rain"), (L2, "ink"), (s_bloom, "bloom"), (L3, "star"),
                        (L4, "line"), (s_score, "score"), (self.END, "end")]
         # (出现时刻, 文字, x, y, 字号, 竖排)
-        self.chunks = [(L1, "泣き虫の", 960, 420, 150, False),
-                       (s_rain, "雨が", 690, 250, 150, True), (q(L1, 10), "降る", 1240, 400, 150, True),
+        self.chunks = [(L1, "泣き虫の", 800, 420, 150, False),
+                       (s_rain, "雨が", 560, 250, 150, True), (q(L1, 10), "降る", 930, 360, 150, True),
                        (L2, "心の", 430, 300, 132, False), (q(L2, 4), "花で", 1480, 720, 132, False),
                        (s_bloom, "満開の", 500, 320, 132, False), (q(L2, 12), "瞬間", 1410, 770, 170, False),
                        (L3, "遠い星が", 450, 250, 112, True), (q(L3, 8), "微笑む", 1330, 560, 118, False),
-                       (L4, "寄り添う", 960, 300, 124, False), (q(L4, 5), "愛", 960, 820, 190, False),
+                       (L4, "寄り添う", 520, 300, 124, False), (q(L4, 5), "愛", 1440, 770, 190, False),
                        (s_score, "永遠の", 640, 320, 128, False), (q(L4, 12), "歌", 1330, 330, 200, False)]
-        # 雨里「君」离开的那一拍：必须是她当轴心的一拍（奇数格）
+        # 雨里「君」那朵花开始散落的那一拍
         b = math.ceil(self.beat(s_rain)) + 3
-        if (b - self.B0) % 2 == 0:
-            b += 1
         self.t_leave = self.at(b)
-        self.k_leave = b - self.B0
         rng = np.random.default_rng(3)
         self.rain = rng.random((170, 6))
         self.petals = rng.random((28, 6))
         self.dust = rng.random((46, 5))
         self.burst = rng.random((52, 5))
+        self.leave_petals = rng.random((16, 5))
         self.vines = [((-60, 990), (300, 720), (430, 640), (770, 575)), ((1980, 110), (1650, 330), (1500, 430), (1150, 515)),
                       ((-40, 150), (180, 170), (380, 260), (560, 360)), ((1960, 960), (1760, 880), (1560, 850), (1380, 760))]
         self.leaves = []
@@ -182,9 +182,8 @@ class EffectPV:
         raise ValueError(t)
 
     # ---------- 通用元素 ----------
-    def img(self, name, x, y, w, h, extra="", sprite=False):
-        base = self.sprites if sprite else self.fx
-        return (f'<image href="file://{base}/{name}" x="{n(x)}" y="{n(y)}" width="{n(w)}" height="{n(h)}" '
+    def img(self, name, x, y, w, h, extra=""):
+        return (f'<image href="file://{self.fx}/{name}" x="{n(x)}" y="{n(y)}" width="{n(w)}" height="{n(h)}" '
                 f'preserveAspectRatio="none" {extra}/>')
 
     def plate(self, name, u, drift=0.05):
@@ -217,61 +216,40 @@ class EffectPV:
                        f'<path d="M{bot}" fill="none" stroke="{color}" stroke-width="0.8" opacity="{op * 0.7:.3f}"/>')
         return "".join(out)
 
-    def orb(self, x, y, color, r=9.0, op=1.0):
-        grad = "hMe" if color == ME else "hYou"
-        return (f'<g opacity="{op:.3f}"><circle cx="{n(x)}" cy="{n(y)}" r="{n(r * 3.4)}" fill="url(#{grad})"/>'
-                f'<circle cx="{n(x)}" cy="{n(y)}" r="{n(r)}" fill="{color}"/>'
-                f'<circle cx="{n(x)}" cy="{n(y)}" r="{n(r * 0.45)}" fill="#ffffff"/></g>')
-
-    def walker(self, t, y, color, op, mode):
-        """低调的小路和两颗光：pair = 两人按 ADOFAI 的走法前进；leave = 雨中「君」升空；solo = 只剩「我」"""
-        b = self.beat(t) - self.B0
-        k0 = math.floor(b)
-        f = b - k0
-        cam = (b - 0.5) * SP
-
-        def pos(k):
-            return CX + k * SP - cam, y + 9 * math.sin(k * 0.55)
-        out = ['<g>']
-        for k in range(k0 - 17, k0 + 18):
-            x, yy = pos(k)
-            a = op * (0.25 + 0.75 * clamp(1 - abs(k - k0) / 14))
-            if k == k0:
-                a = min(1.0, a + 0.5 * math.exp(-f * 6))
-            out.append(f'<rect x="{n(x - 15)}" y="{n(yy - 15)}" width="30" height="30" rx="6" fill="{color}" '
-                       f'fill-opacity="0.08" stroke="{color}" stroke-width="1.3" opacity="{a:.3f}"/>')
-        solo = mode == "solo" or (mode == "leave" and t >= self.t_leave)
-        if not solo:
-            px, py = pos(k0)
-            th = math.pi * (1 - f)
-            mx, my = px + SP * math.cos(th), py - SP * 0.9 * math.sin(th)
-            me_pivot = k0 % 2 == 0
-            out.append(self.orb(px, py, ME if me_pivot else YOU))
-            out.append(self.orb(mx, my, YOU if me_pivot else ME))
-        else:
-            x0, y0 = pos(k0 - 1)
-            x1, y1 = pos(k0)
-            out.append(self.orb(lerp(x0, x1, ease_io(f)), lerp(y0, y1, f) - 26 * math.sin(math.pi * f), ME))
-            if mode == "leave":
-                u = t - self.t_leave
-                bx, by = pos(self.k_leave)
-                r = ease_io(u / 2.4)
-                ox, oy = bx + 120 * r, by - 720 * r
-                fade = 1 - clamp((u - 1.6) / 0.8)
-                out.append(f'<line x1="{n(ox)}" y1="{n(oy)}" x2="{n(bx)}" y2="{n(by)}" stroke="{YOU}" stroke-width="1.6" '
-                           f'opacity="{0.45 * fade * (1 - r * 0.5):.3f}"/>')
-                for j in range(5):  # 落下的泪
-                    v = (u * 1.3 + j * 0.2) % 1.0
-                    out.append(f'<ellipse cx="{n(ox + (j - 2) * 6)}" cy="{n(oy + v * 180)}" rx="2" ry="5" fill="{YOU}" '
-                               f'opacity="{0.7 * fade * (1 - v):.3f}"/>')
-                out.append(self.orb(ox, oy, YOU, 9 * (1 - 0.4 * r), fade))
+    def stem_rose(self, uid, t, bx, hx, hy, R, style, g=1.0, lean=0.0, squash=0.62, opacity=1.0, seed=0, reveal=None, phase=0.0,
+                  stem=True):
+        """一枝玫瑰：从画面下方长上来的茎 + 两片小叶 + 花头（花头随风轻摆，lean 为弯腰的角度）"""
+        stem_col = {"sepia": "#3e2c1b", "gray": "#2f3338", "line": "#ffffff"}[style]
+        sway = 7 * math.sin(t * 1.3 + phase)
+        hx2 = hx + sway + 260 * math.sin(lean)
+        hy2 = hy + 260 * (1 - math.cos(lean))
+        by = H + 30
+        mx, my = lerp(bx, hx2, 0.5) + 30 * math.sin(lean + 0.3), lerp(by, hy2, 0.5)
+        k = ease_out(reveal / 0.6) if reveal is not None else 1.0
+        dash = f' pathLength="1" stroke-dasharray="{k:.4f} 2"' if reveal is not None else ""
+        out = [f'<g opacity="{opacity:.3f}">']
+        if not stem:
+            out.append(rose.rose_svg(uid, hx2, hy2, R, style, g, lean * 0.6 + 0.2 * math.sin(t * 0.5 + phase), squash, seed,
+                                     reveal=reveal) + '</g>')
+            return "".join(out)
+        out.append(f'<path d="M{n(bx)} {n(by)} Q{n(mx)} {n(my)} {n(hx2)} {n(hy2)}" fill="none" stroke="{stem_col}" '
+                   f'stroke-width="{max(2.0, R / 18):.1f}" stroke-linecap="round"{dash}/>')
+        for j, (v, side) in enumerate(((0.45, 1), (0.65, -1))):
+            px, py = lerp(lerp(bx, mx, v), lerp(mx, hx2, v), v), lerp(lerp(by, my, v), lerp(my, hy2, v), v)
+            body, veins = rose.leaf(px, py, -math.pi / 2 + side * 0.9 + lean, R * 0.75 * k, R * 0.27 * k, 1.0)
+            fill = "#050507" if style == "line" else stem_col
+            out.append(f'<path d="{body}" fill="{fill}" stroke="{stem_col}" stroke-width="1.4"/>')
+        out.append(rose.rose_svg(uid, hx2, hy2, R, style, g, lean * 0.6 + 0.2 * math.sin(t * 0.5 + phase), squash, seed,
+                                 leaves=False, reveal=reveal))
         out.append('</g>')
         return "".join(out)
 
     # ---------- 场景 ----------
     def sc_sepia(self, t, u):
         out = [self.plate("sepia.jpg", u), self.ribbons(t, "#5a4128", 0.32, 540, 90),
-               self.rings(t, CX, CY - 40, 300, "#5a4128", 0.32), self.walker(t, 700, "#4a3520", 0.55, "pair")]
+               self.rings(t, CX, CY - 40, 300, "#5a4128", 0.32),
+               self.stem_rose("s1", t, 1400, 1330, 650, 86, "sepia", lean=0.10, seed=21),
+               self.stem_rose("s2", t, 1560, 1545, 615, 94, "sepia", lean=-0.12, seed=22, phase=1.3)]
         for p in self.petals:  # 枯叶般落下的花瓣
             x = (p[0] * 2200 - 140 - 60 * t) % 2200 - 140
             y = (p[1] * 1300 + (60 + 50 * p[2]) * t) % 1300 - 110
@@ -285,8 +263,22 @@ class EffectPV:
         out = [self.plate("rain.jpg", u),
                self.img("rays.png", -260, -240, 1600, 1400,
                         f'opacity="{0.55 + 0.15 * math.sin(t * 2.1):.3f}" transform="rotate({2.5 * math.sin(t * 0.7):.2f} 90 -100)"'),
-               self.ribbons(t, "#e6ebf0", 0.28, 560, 80, seed=2.0), self.rings(t, CX, CY - 40, 300, "#e6ebf0", 0.35),
-               self.walker(t, 700, "#e6ebf0", 0.5, "leave")]
+               self.ribbons(t, "#e6ebf0", 0.28, 560, 80, seed=2.0), self.rings(t, CX, CY - 40, 300, "#e6ebf0", 0.35)]
+        # 「君」那朵：从这一拍起花瓣被雨打散、顺着光束飘上天，花头慢慢谢掉；「我」那朵在雨里低下头
+        ul = t - self.t_leave
+        wilt = ease_io(ul / 2.2) if ul > 0 else 0.0
+        out.append(self.stem_rose("r1", t, 1400, 1330, 650, 86, "gray", lean=0.10 + 0.25 * ease_io(u / 2.5), seed=21))
+        out.append(self.stem_rose("r2", t, 1560, 1545, 615, 94, "gray", g=1 - 0.7 * wilt, lean=-0.12, seed=22, phase=1.3,
+                                  opacity=1 - 0.75 * wilt))
+        for p in self.leave_petals:
+            d = p[0] * 1.3
+            if ul > d:
+                pr = (ul - d) / 2.4
+                px = 1545 - (160 + 260 * p[1]) * pr + 30 * math.sin(ul * 3 + p[2] * 6)
+                py = 615 - (650 + 250 * p[2]) * ease_out(pr) + 20 * pr
+                out.append(f'<path d="M0 -9 C7 -8 9 4 0 9 C-9 4 -7 -8 0 -9 Z" fill="#f3d9e1" stroke="#9aa0a6" stroke-width="0.8" '
+                           f'opacity="{0.95 * clamp(1 - pr):.3f}" transform="translate({n(px)} {n(py)}) rotate({n(ul * 200 * (p[3] - .5) + p[4] * 360)}) '
+                           f'scale({0.9 + 0.8 * p[4]:.2f} {0.9 + 0.4 * math.sin(ul * 5 + p[1] * 9):.2f})"/>')
         for width, sel in ((1.1, self.rain[:, 5] < 0.7), (2.0, self.rain[:, 5] >= 0.7)):
             d = []
             for r in self.rain[sel]:
@@ -299,20 +291,10 @@ class EffectPV:
         return "".join(out)
 
     def flower(self, t, u, colored):
-        if colored:
-            s = 760 * (1 + 0.02 * self.pulse(t))
-            return (f'<circle cx="{CX}" cy="{CY}" r="440" fill="url(#hWarm)"/>' +
-                    self.img("rose_pink_90_1.00.png", CX - s / 2, CY - s / 2, s, s,
-                             f'transform="rotate({t * 4:.2f} {CX} {CY})"', sprite=True))
-        g = ease_out(u / 1.7)
-        stages = ["0.05", "0.40", "0.75", "1.00"]
-        x = g * 3
-        k = min(int(x), 2)
-        fr = x - k
-        s = (430 + 330 * g) * (1 + 0.02 * self.pulse(t))
-        tr = f'transform="rotate({-25 + 25 * g + t * 4:.2f} {CX} {CY})"'
-        return (self.img(f"inkrose_{stages[k]}.png", CX - s / 2, CY - s / 2, s, s, f'opacity="{1 - fr:.3f}" ' + tr) +
-                self.img(f"inkrose_{stages[k + 1]}.png", CX - s / 2, CY - s / 2, s, s, f'opacity="{fr:.3f}" ' + tr))
+        g = 1.0 if colored else 0.1 + 0.9 * ease_out(u / 1.9)
+        R = 300 * (1 + 0.015 * self.pulse(t))
+        body = rose.rose_svg("heart", CX, CY, R, "bloom" if colored else "ink", g, t * 0.07, 1.0, 11)
+        return (f'<circle cx="{CX}" cy="{CY}" r="440" fill="url(#hWarm)"/>' if colored else "") + body
 
     def sc_ink(self, t, u):
         p = ease_out((u - 0.05) / 0.9) * 0.93
@@ -323,7 +305,7 @@ class EffectPV:
                        for a, r in ((0.35, 5), (0.42, 3), (0.5, 2), (2.9, 4), (3.0, 2))) if p > 0.8 else ""
         return "".join([self.plate("white.jpg", u), self.ribbons(t, "#111111", 0.4, 560, 110, seed=4.0),
                         f'<g transform="translate({CX} {CY - 24}) scale(0.88) translate({-CX} {-CY})">{enso}{dots}'
-                        f'{self.flower(t, u, False)}{self.orb(CX, CY, ME, 11)}</g>'])
+                        f'{self.flower(t, u, False)}</g>'])
 
     def _mandala(self):
         c = 'fill="#f8d9dd" fill-opacity="0.5" stroke="#b86e80" stroke-width="1.5"'
@@ -356,7 +338,6 @@ class EffectPV:
             col = ("#f7b7d2", "#ffffff", "#ffe8a8", "#fac8da")[int(p[2] * 4)]
             out.append(f'<ellipse cx="0" cy="0" rx="{n(9 + 7 * p[3])}" ry="{n(4 + 2 * p[3])}" fill="{col}" opacity="{op:.3f}" '
                        f'transform="translate({n(CX + r * math.cos(a))} {n(CY + r * math.sin(a) + 40 * u * u)}) rotate({n(u * 300 * (p[4] - .5) + a * 57)})"/>')
-        out.append(self.orb(CX, CY, ME, 11))
         return "".join(out)
 
     def sc_star(self, t, u, t_smile):
@@ -378,7 +359,6 @@ class EffectPV:
             y = H - 180 - ((d[1] * 700 + 40 * (0.5 + d[2]) * t) % 700)
             a = 0.3 + 0.7 * (0.5 + 0.5 * math.sin(t * (3 + 4 * d[3]) + d[4] * 9))
             out.append(f'<circle cx="{n(x + 14 * math.sin(t + d[4] * 7))}" cy="{n(y)}" r="{n(1.2 + 2 * d[2])}" fill="#e9f8ff" opacity="{a:.3f}"/>')
-        out.append(self.walker(t, 790, "#cfefff", 0.5, "solo"))
         out.append(self.fg("fg_ice.png", u, H - 440, 18))
         return "".join(out)
 
@@ -394,10 +374,10 @@ class EffectPV:
             if k > 0:
                 out.extend(f'<path d="{d}" pathLength="1" stroke-dasharray="{k:.4f} 2"/>' for d in paths)
         out.append('</g>')
-        a = t * 2 * math.pi / (8 * self.period)
-        out.append(self.rings(t, CX, CY, 118, "#ffffff", 0.3))
-        out.append(self.orb(CX + 22 * math.cos(a + math.pi), CY + 22 * math.sin(a + math.pi), YOU, 9, 0.7))
-        out.append(self.orb(CX + 22 * math.cos(a), CY + 22 * math.sin(a), ME, 10))
+        # 寄り添う：两朵线稿玫瑰一笔笔画出来，靠在一起
+        out.append(self.stem_rose("l1", t, 0, 860, 575, 175, "line", lean=0.10, squash=0.85, seed=31, reveal=u / 1.8, stem=False))
+        out.append(self.stem_rose("l2", t, 0, 1085, 525, 150, "line", lean=-0.10, squash=0.85, seed=32, reveal=(u - 0.35) / 1.8,
+                                  phase=1.1, stem=False))
         return "".join(out)
 
     def staff_y(self, x, t, i, calm=0.0):
@@ -438,14 +418,8 @@ class EffectPV:
         out.append(self.staff(t, 0.0, "#4a4f55", 0.85))
         cy = self.staff_y(180, t, 3)
         out.append(f'<text x="175" y="{n(cy + 34)}" font-family="{MUSIC}" font-size="118" fill="#2b2f33" text-anchor="middle">{CLEF}</text>')
-        notes, b = self.notes(t, s0)
+        notes, _ = self.notes(t, s0)
         out.append(notes)
-        k = min(int(b), len(self.NOTES) - 1)
-        f = b - math.floor(b)
-        x0, x1 = 330 + (k - 1) * 118, 330 + k * 118
-        x = lerp(x0, x1, ease_io(f / 0.5)) if k > 0 else 250
-        y = self.staff_y(x, t, 2) - 60 - 20 * math.sin(math.pi * clamp(f / 0.5))
-        out.append(self.orb(x, y, ME, 9))
         return "".join(out)
 
     def emblem(self, cx, cy, u):
@@ -467,7 +441,7 @@ class EffectPV:
                            f'<path d="M0 0 L17 -34 L0 -104 Z" fill="#6fa4a0" stroke="#b08d57" stroke-width="1.4"/></g>')
                 out.append(f'<g transform="rotate({a + 30})"><path d="M0 -20 L-8 -38 L0 -58 L8 -38 Z" fill="#d9c08f" stroke="#b08d57" stroke-width="1"/></g>')
             out.append('<circle r="12" fill="#fdfaf2" stroke="#b08d57" stroke-width="1.6"/>')
-            out.append(self.orb(0, 0, ME, 6, st) + '</g>')
+            out.append(f'<circle r="5.5" fill="#8fd3bd" stroke="#b08d57" stroke-width="1"/></g>')
         out.append('</g>')
         return "".join(out)
 
@@ -662,7 +636,7 @@ class Renderer:
 
 
 def build(args):
-    pv = EffectPV(args.fx, args.sprites, args.lrc, args.features)
+    pv = EffectPV(args.fx, args.lrc, args.features)
     pv.t_in, pv.t_out = args.start, args.end
     return pv
 
@@ -686,7 +660,7 @@ def worker(args, a, b, seg):
 
 def main():
     ap = argparse.ArgumentParser()
-    for name in ("fx", "sprites", "audio", "lrc", "features", "fonts", "output"):
+    for name in ("fx", "audio", "lrc", "features", "fonts", "output"):
         ap.add_argument(name)
     ap.add_argument("--start", type=float, default=256.9)
     ap.add_argument("--end", type=float, default=286.0)

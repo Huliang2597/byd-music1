@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """effectpv.py 用的贴图：每个场景一张底图 + 前景剪影 + 花（全部用 numpy/PIL 程序化生成，只需跑一次）。
 
-用法: python3 fxtex.py <sprites目录> <输出目录>
+用法: python3 fxtex.py <输出目录>（花先用 rose.py 渲成透明 PNG 放在 <输出目录>/roses）
 """
 import math
 import os
@@ -9,6 +9,9 @@ import sys
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rose  # noqa: E402
 
 PW, PH = 2112, 1188  # 底图比画面大 10%，留给镜头推拉
 
@@ -156,14 +159,14 @@ def silhouettes(sprites, w, h, seed, roses=6):
         edge = min(x0, w * s - x0) / (w * s)
         hh = (0.25 + 0.75 * rng.random() ** 1.5) * h * s * (1.0 - 0.9 * min(edge * 2.4, 0.85))
         blade(d, x0, h * s + 4, hh, rng.normal(0, 0.35), (3 + 5 * rng.random()) * s, 255)
-    names = [f"rose_{c}_{e}_1.00.png" for c in ("white", "blue", "paleblue") for e in (25, 55)]
+    names = ["rose_dark_tilt.png", "rose_gray_tilt.png", "rose_ice_tilt2.png"]
     for k in range(roses):
         side = -1 if k % 2 == 0 else 1
         x0 = w * s * (0.5 + side * (0.28 + 0.2 * rng.random()))
         top = h * s * (0.15 + 0.4 * rng.random())
         d.line([(x0, h * s), (x0 + rng.normal(0, 20), top)], fill=255, width=5 * s)
         spr = Image.open(os.path.join(sprites, names[rng.integers(len(names))])).split()[3]
-        sz = int((150 + 150 * rng.random()) * s)
+        sz = int((190 + 170 * rng.random()) * s)
         spr = spr.resize((sz, sz), Image.LANCZOS).rotate(rng.normal(0, 18), resample=Image.BICUBIC)
         m.paste(255, (int(x0 - sz / 2), int(top - sz / 2)), spr.point(lambda v: 255 if v > 90 else 0))
     return m.resize((w, h), Image.LANCZOS)
@@ -185,24 +188,11 @@ def tinted(mask, color, blur=0.0, glow=None):
     return im
 
 
-def ink_flowers(sprites, out):
-    """心之花：把三渲二玫瑰（俯视）阈值化成纯黑白的墨线稿"""
-    for st in ("0.05", "0.40", "0.75", "1.00"):
-        spr = Image.open(os.path.join(sprites, f"rose_paleblue_90_{st}.png")).convert("RGBA").resize((1024, 1024), Image.LANCZOS)
-        a = np.asarray(spr, np.float32) / 255
-        lum = a[..., :3] @ np.array([0.3, 0.59, 0.11], np.float32)
-        ink = (lum > 0.8).astype(np.float32)
-        rgba = np.zeros((1024, 1024, 4), np.uint8)
-        rgba[..., :3] = (ink[..., None] * 255).astype(np.uint8)
-        rgba[..., 3] = ((a[..., 3] > 0.5) * 255).astype(np.uint8)
-        Image.fromarray(rgba).filter(ImageFilter.SMOOTH_MORE).save(os.path.join(out, f"inkrose_{st}.png"))
-
-
 def watercolor(sprites, out):
     """永远之歌：灰色水彩花（晕开的边 + 边缘积色 + 颗粒）"""
     rng = np.random.default_rng(11)
-    for k, (c, e) in enumerate([("white", 55), ("paleblue", 25), ("blue", 55), ("white", 90)]):
-        spr = Image.open(os.path.join(sprites, f"rose_{c}_{e}_1.00.png")).convert("RGBA").resize((900, 900), Image.LANCZOS)
+    for k, name in enumerate(["rose_gray_top", "rose_gray_tilt", "rose_gray_top2", "rose_gray_tilt"]):
+        spr = Image.open(os.path.join(sprites, f"{name}.png")).convert("RGBA").resize((900, 900), Image.LANCZOS)
         spr = spr.rotate(rng.normal(0, 25), resample=Image.BICUBIC)
         arr = np.asarray(spr, np.float32) / 255
         alpha = Image.fromarray((arr[..., 3] * 255).astype(np.uint8))
@@ -222,23 +212,17 @@ def ice_fg(sprites, out):
     """星空场景的前景：发光的草 + 冰色的三渲二玫瑰（保留素材里的线条，不再是剪影色块）"""
     grass = tinted(silhouettes(sprites, PW, 560, 6, roses=0), "#e9f8ff", blur=1.0, glow="#7fd0ff")
     rng = np.random.default_rng(7)
-    ramp_lo, ramp_hi = hexrgb("#3d86bf"), hexrgb("#f4fcff")
     for k in range(7):
         side = -1 if k % 2 == 0 else 1
         x0 = PW * (0.5 + side * (0.25 + 0.22 * rng.random()))
-        sz = int(170 + 120 * rng.random())
+        sz = int(230 + 150 * rng.random())
         top = 560 * (0.22 + 0.35 * rng.random())
         stem = Image.new("RGBA", grass.size, (0, 0, 0, 0))
         ImageDraw.Draw(stem).line([(x0, 560), (x0 + rng.normal(0, 12), top)], fill=(214, 240, 255, 255), width=4)
         grass = Image.alpha_composite(grass, stem)
-        name = ["rose_paleblue_25_1.00.png", "rose_white_55_1.00.png", "rose_blue_25_1.00.png"][k % 3]
+        name = ["rose_ice_tilt.png", "rose_ice_tilt2.png"][k % 2]
         spr = Image.open(os.path.join(sprites, name)).convert("RGBA").resize((sz, sz), Image.LANCZOS)
-        spr = spr.rotate(rng.normal(0, 15), resample=Image.BICUBIC)
-        a = np.asarray(spr, np.float32) / 255
-        lum = np.clip((a[..., :3] @ np.array([0.3, 0.59, 0.11], np.float32) - 0.15) / 0.7, 0, 1)
-        rgba = np.zeros((sz, sz, 4), np.uint8)
-        rgba[..., :3] = (mix(np.broadcast_to(ramp_lo, (sz, sz, 3)), ramp_hi, lum) * 255).astype(np.uint8)
-        rgba[..., 3] = (a[..., 3] * 255).astype(np.uint8)
+        rgba = np.array(spr.rotate(rng.normal(0, 12), resample=Image.BICUBIC))
         glow = Image.fromarray(rgba[..., 3]).filter(ImageFilter.GaussianBlur(12))
         halo = np.zeros((sz, sz, 4), np.uint8)
         halo[..., :3] = (hexrgb("#9fdcff") * 255).astype(np.uint8)
@@ -254,8 +238,10 @@ def ice_fg(sprites, out):
 
 
 def main():
-    sprites, out = sys.argv[1], sys.argv[2]
-    os.makedirs(out, exist_ok=True)
+    out = sys.argv[1]
+    sprites = os.path.join(out, "roses")
+    os.makedirs(sprites, exist_ok=True)
+    rose.render_pngs(sprites)
     plate_sepia(out)
     plate_rain(out)
     plate_paper(out, "paper.jpg", "#f4f1ea", "#b9b2a3", 12)
@@ -266,7 +252,6 @@ def main():
     tinted(m, "#3e2c1b", blur=2.5).save(os.path.join(out, "fg_sepia.png"))
     tinted(m, "#2f3338", blur=2.5).save(os.path.join(out, "fg_rain.png"))
     ice_fg(sprites, out)
-    ink_flowers(sprites, out)
     watercolor(sprites, out)
     print("ok", sorted(os.listdir(out)))
 
