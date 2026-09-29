@@ -66,7 +66,7 @@ def lerp(a, b, t):
 
 
 def f1(x):
-    return f"{x:.1f}"
+    return f"{x:.2f}"
 
 
 def rz(deg):
