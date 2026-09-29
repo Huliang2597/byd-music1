@@ -14,6 +14,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -80,23 +82,20 @@ public final class LyricFix {
         String lrc = "";
         String trans = "";
         String roma = "";
-        boolean anySuccess = false;
-        Throwable lastError = null;
+        List<String> errors = new ArrayList<>();
 
-        // 逐字歌词：不同参数组合依次尝试，拿到 QRC 就停止。
-        int[] types = {0, -1, 1};
+        // 1) GetPlayLyricInfo（简洁版接口）：不同 type 依次尝试，拿到 QRC 就停止；接口报错则直接换下一个来源。
+        boolean liteOk = false;
+        int[] types = {0, -1};
         for (int type : types) {
             JSONObject data;
             try {
                 data = officialLyric(api, mid, id, true, type);
             } catch (Throwable t) {
-                lastError = t;
-                if (!(t instanceof ApiException)) {
-                    break; // 网络错误：换参数也没用
-                }
-                continue;
+                errors.add("简洁版歌词接口：" + QmClient.describe(t));
+                break;
             }
-            anySuccess = true;
+            liteOk = true;
             String lyric = decodeField(data.optString("lyric"));
             String t = decodeField(data.optString("trans"));
             String r = decodeField(data.optString("roma"));
@@ -117,36 +116,97 @@ public final class LyricFix {
             }
         }
 
-        // 普通 LRC（明文逐行歌词）。
-        try {
-            JSONObject data = officialLyric(api, mid, id, false, 0);
-            anySuccess = true;
-            String lyric = decodeField(data.optString("lyric"));
-            if (isQrc(lyric) && isBlank(qrc)) {
-                qrc = lyric;
-            } else if (!isBlank(lyric) && !isQrc(lyric)) {
-                lrc = lyric;
-            }
-            if (isBlank(trans)) {
-                trans = decodeField(data.optString("trans"));
-            }
-            if (isBlank(roma)) {
-                roma = decodeField(data.optString("roma"));
-            }
-        } catch (Throwable t) {
-            if (lastError == null) {
-                lastError = t;
+        // 2) 旧版逐字歌词下载 lyric_download.fcg（需要数字 ID）
+        if (isBlank(qrc)) {
+            try {
+                long songId = parseId(id);
+                if (songId <= 0) {
+                    JSONObject info = QmClient.songInfo(mid, 0);
+                    songId = info == null ? 0 : info.optLong("id");
+                }
+                if (songId > 0) {
+                    String[] raw = QmClient.legacyLyrics(songId);
+                    String orig = decodeField(raw[0]);
+                    if (isQrc(orig)) {
+                        qrc = orig;
+                    } else if (isBlank(lrc) && looksLikeLrc(orig)) {
+                        lrc = orig;
+                    }
+                    String t = decodeField(raw[1]);
+                    String r = decodeField(raw[2]);
+                    if (isBlank(trans) || (!isBlank(t) && isQrc(qrc))) {
+                        trans = isBlank(t) ? trans : t;
+                    }
+                    if (isBlank(roma)) {
+                        roma = r;
+                    }
+                    if (isBlank(orig)) {
+                        errors.add("旧版逐字接口：无歌词");
+                    }
+                } else {
+                    errors.add("旧版逐字接口：缺少歌曲 ID");
+                }
+            } catch (Throwable t) {
+                errors.add("旧版逐字接口：" + QmClient.describe(t));
             }
         }
 
-        if (!anySuccess) {
-            String message = lastError != null ? lastError.getMessage() : null;
-            throw new ApiException("歌词请求失败：" + (isBlank(message) ? "服务不可用" : message));
+        // 3) 普通 LRC：先用简洁版接口（crypt=0），不通再用网页版歌词接口
+        if (isBlank(lrc) && liteOk) {
+            try {
+                JSONObject data = officialLyric(api, mid, id, false, 0);
+                String lyric = decodeField(data.optString("lyric"));
+                if (isQrc(lyric) && isBlank(qrc)) {
+                    qrc = lyric;
+                } else if (!isBlank(lyric) && !isQrc(lyric)) {
+                    lrc = lyric;
+                }
+                if (isBlank(trans)) {
+                    trans = decodeField(data.optString("trans"));
+                }
+                if (isBlank(roma)) {
+                    roma = decodeField(data.optString("roma"));
+                }
+            } catch (Throwable t) {
+                errors.add("简洁版 LRC：" + QmClient.describe(t));
+            }
         }
-        if (isBlank(lrc) && !isBlank(qrc)) {
+        if (isBlank(lrc) && mid != null && !isBlank(mid)) {
+            try {
+                String[] raw = QmClient.webLyrics(mid);
+                String l = decodeField(raw[0]);
+                if (!isBlank(l)) {
+                    lrc = l;
+                }
+                if (isBlank(trans)) {
+                    trans = decodeField(raw[1]);
+                }
+            } catch (Throwable t) {
+                errors.add("网页版歌词接口：" + QmClient.describe(t));
+            }
+        }
+
+        if (isBlank(qrc) && isBlank(lrc)) {
+            if (!errors.isEmpty()) {
+                throw new ApiException("歌词获取失败（" + QmClient.VERSION + "）\n" + QmClient.join(errors));
+            }
+            return new Lyrics("", "", trans, roma);
+        }
+        if (isBlank(lrc)) {
             lrc = qrcToLrc(qrc);
         }
         return new Lyrics(qrc, lrc, trans, roma);
+    }
+
+    private static long parseId(String id) {
+        if (id == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(id.trim());
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 
     private static JSONObject officialLyric(QQMusicApi api, String mid, String id, boolean qrc, int type) throws Exception {

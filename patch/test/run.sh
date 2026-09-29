@@ -36,9 +36,11 @@ javac -nowarn -encoding UTF-8 -cp "$WORK/a/stubs:$CP" -d "$WORK/a/cls" \
 "${JVM[@]}" -cp "$WORK/a/cls:$WORK/a/stubs:$CP" LyricFixTest "$HERE/fixtures/qrc.xml" "$HERE/fixtures/qrc.hex"
 
 # 2) 获取流程测试：假的 QQMusicApi（返回 QRC 但不带 "qrc" 标志）
-javac -nowarn -encoding UTF-8 -cp "$CP" -d "$WORK/b" $(find "$HERE/fakes" -name '*.java') \
-  "$PATCH/src/com/teamolline/qqlyrics/fix/LyricFix.java" "$HERE/FetchTest.java"
-"${JVM[@]}" -cp "$WORK/b:$CP" FetchTest "$HERE/fixtures/qrc.xml" "$HERE/fixtures/qrc.hex"
+JSON_JAR="$TOOLS/json.jar"
+[ -f "$JSON_JAR" ] || curl -fsSL -o "$JSON_JAR" https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
+javac -nowarn -encoding UTF-8 -cp "$JSON_JAR:$CP" -d "$WORK/b" $(find "$HERE/fakes" -name '*.java') \
+  "$PATCH/src/com/teamolline/qqlyrics/fix/LyricFix.java" "$PATCH/src/com/teamolline/qqlyrics/fix/QmClient.java" "$HERE/FetchTest.java"
+"${JVM[@]}" -cp "$WORK/b:$JSON_JAR:$CP" FetchTest "$HERE/fixtures/qrc.xml" "$HERE/fixtures/qrc.hex"
 
 # 3) QmClient 请求流程：本地模拟 QQ 音乐接口（会话 → 搜索 → 歌词）
 JSON_JAR="$TOOLS/json.jar"
@@ -51,9 +53,11 @@ javac -nowarn -encoding UTF-8 -cp "$JSON_JAR:$CP" -d "$WORK/c" \
   "$PATCH/src/com/teamolline/qqlyrics/fix/QmClient.java" "$PATCH/src/com/teamolline/qqlyrics/fix/LyricFix.java" \
   "$HERE/qm/QmClientTest.java"
 PORT=18765
-python3 "$HERE/qm/server.py" $PORT "$HERE/fixtures/qrc.hex" "$WORK/c/log.jsonl" &
-SERVER=$!
-trap 'kill $SERVER 2>/dev/null' EXIT
-sleep 1
-"${JVM[@]}" -Dqqlyrics.endpoint=http://127.0.0.1:$PORT/cgi-bin/musicu.fcg -cp "$WORK/c:$JSON_JAR:$CP" \
-  QmClientTest "$HERE/fixtures/qrc.xml" "$WORK/c/log.jsonl"
+for MODE in lite_ok lite_2001 all_fail; do
+  python3 "$HERE/qm/server.py" $PORT "$HERE/fixtures/qrc.hex" "$WORK/c/log-$MODE.jsonl" $MODE &
+  SERVER=$!
+  sleep 1
+  "${JVM[@]}" -Dqqlyrics.endpoint=http://127.0.0.1:$PORT -cp "$WORK/c:$JSON_JAR:$CP" \
+    QmClientTest "$HERE/fixtures/qrc.xml" "$WORK/c/log-$MODE.jsonl" $MODE || { kill $SERVER; exit 1; }
+  kill $SERVER; wait $SERVER 2>/dev/null || true
+done

@@ -14,7 +14,7 @@ public final class QQMusicApi {
     calls.add(p.toString());
     if (fail) throw new ApiException("网络错误");
     JSONObject r = new JSONObject();
-    int crypt = (Integer) p.m.get("crypt"); int type = (Integer) p.m.get("type");
+    int crypt = p.getInt("crypt"); int type = p.getInt("type");
     if (crypt == 1) { // no "qrc" flag on purpose
       r.put("lyric", (qrcOnlyForType == null || qrcOnlyForType == type) ? qrcHex : "");
     } else { r.put("lyric", lrcB64); }

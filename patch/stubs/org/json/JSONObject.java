@@ -8,6 +8,7 @@ public class JSONObject {
   public JSONObject optJSONObject(String k) { throw new RuntimeException("stub"); }
   public JSONArray optJSONArray(String k) { throw new RuntimeException("stub"); }
   public String optString(String k) { throw new RuntimeException("stub"); }
+  public Object opt(String k) { throw new RuntimeException("stub"); }
   public int optInt(String k) { throw new RuntimeException("stub"); }
   public int optInt(String k, int d) { throw new RuntimeException("stub"); }
   public long optLong(String k) { throw new RuntimeException("stub"); }
