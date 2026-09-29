@@ -5,3 +5,5 @@ mv/*.mp4
 __pycache__/
 *.pyc
 mv/*.jpg
+mv/.*_stage.html
+mv/*_segments/
