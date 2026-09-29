@@ -2,3 +2,5 @@ patch/tools/
 patch/work/
 patch/out/
 mv/*.mp4
+__pycache__/
+*.pyc
