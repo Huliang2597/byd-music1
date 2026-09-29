@@ -57,8 +57,9 @@ def parse_lrc(path):
 
 
 class Overlay:
-    def __init__(self, frames_dir, lrc, features, fps):
+    def __init__(self, frames_dir, lrc, features, fps, step=1, first=0):
         self.frames_dir = os.path.abspath(frames_dir)
+        self.step, self.first = step, first  # step=2：3D 画面一拍二，叠加层仍逐帧
         self.lines = parse_lrc(lrc)
         self.fps = fps
         d = np.load(features)
@@ -75,7 +76,7 @@ class Overlay:
                '<stop offset="0.3" stop-color="#d8fff8" stop-opacity="0.5"/><stop offset="1" stop-color="#8ff0e6" stop-opacity="0"/></radialGradient>'
                '<filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>'
                '</defs>',
-               f'<image href="file://{self.frames_dir}/{i:06d}.png" width="{W}" height="{H}"/>']
+               f'<image href="file://{self.frames_dir}/{self.first + (i - self.first) // self.step * self.step:06d}.png" width="{W}" height="{H}"/>']
         out.append(self.speed_lines(t))
         out.append(self.sparkles(t, kick))
         # 两颗光相会
@@ -214,8 +215,9 @@ def main():
     ap.add_argument("--end", type=float, default=237.5)
     ap.add_argument("--fps", type=int, default=24)
     ap.add_argument("--still", default=None)
+    ap.add_argument("--step", type=int, default=1, help="3D 画面隔帧（2 = 一拍二）")
     args = ap.parse_args()
-    ov = Overlay(args.frames, args.lrc, args.features, args.fps)
+    ov = Overlay(args.frames, args.lrc, args.features, args.fps, args.step, round(args.start * args.fps))
     workdir = os.path.dirname(os.path.abspath(args.output))
     r = Renderer(ov, os.path.abspath(args.fonts), workdir)
     if args.still:

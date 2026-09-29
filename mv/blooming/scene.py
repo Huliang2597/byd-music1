@@ -815,6 +815,7 @@ def main():
     ap.add_argument("--scale", type=int, default=100)
     ap.add_argument("--threads", type=int, default=0)
     ap.add_argument("--samples", type=int, default=0)
+    ap.add_argument("--step", type=int, default=1, help="隔帧渲染：2 = 一拍二")
     ap.add_argument("--part", default="0/1", help="i/n：只渲染第 i 份（并行用）")
     args = ap.parse_args()
     os.makedirs(args.outdir, exist_ok=True)
@@ -834,7 +835,7 @@ def main():
         return
     a, b = round(args.start * args.fps), round(args.end * args.fps)
     i, n = map(int, args.part.split("/"))
-    frames = list(range(a, b))[i::n]
+    frames = list(range(a, b, args.step))[i::n]
     t0 = time.time()
     for k, f in enumerate(frames):
         path = os.path.join(os.path.abspath(args.outdir), f"{f:06d}.png")
