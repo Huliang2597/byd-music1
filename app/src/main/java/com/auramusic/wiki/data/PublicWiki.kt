@@ -15,7 +15,7 @@ import org.json.JSONObject
 object PublicWiki {
     private const val BASE = "https://ne.cdgz.top/api/contribution?id="
     const val HOME = "https://ne.cdgz.top/"
-    private const val UA = "WikiUploader/1.2.0 (Android; PublicWiki)"
+    private const val UA = "WikiUploader/1.2.1 (Android; PublicWiki)"
     private val ID = Regex("[1-9][0-9]{0,19}")
 
     fun shortLink(input: String?): String? {
