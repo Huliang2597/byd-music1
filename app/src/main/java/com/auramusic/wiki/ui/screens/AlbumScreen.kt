@@ -163,13 +163,15 @@ class AlbumViewModel(private val graph: AppGraph) : ViewModel() {
     suspend fun searchArtists(keyword: String) = graph.api.searchArtists(keyword)
     suspend fun searchTags(keyword: String) = graph.api.tags(keyword)
 
-    fun confirmArtistInput() {
-        val id = Links.parseArtistId(artistInput)
-        if (id == null) {
-            artistError = "没有识别到艺人 ID"
-            return
+    /** 输入的是链接或 ID 时直接读取；是艺人名时返回 false，由界面打开搜索。 */
+    fun confirmArtistInput(): Boolean {
+        if (artistInput.isBlank()) {
+            artistError = "请输入艺人链接、ID 或艺人名"
+            return true
         }
+        val id = Links.parseArtistId(artistInput) ?: return false
         loadArtist(id)
+        return true
     }
 
     fun loadArtist(id: Long) {
@@ -410,12 +412,12 @@ fun AlbumScreen(graph: AppGraph) {
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             AppTextField(
-                                vm.artistInput, { vm.artistInput = it; vm.artistError = null }, "艺人链接或 ID",
+                                vm.artistInput, { vm.artistInput = it; vm.artistError = null }, "艺人链接、ID 或艺人名",
                                 error = vm.artistError,
-                                onIme = { vm.confirmArtistInput() },
+                                onIme = { if (!vm.confirmArtistInput()) picker = AlbumPicker.Artist },
                             )
                             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                GradientButton("确定", { vm.confirmArtistInput() }, Modifier.weight(1f), loading = vm.artistLoading, icon = Icons.Rounded.Check)
+                                GradientButton("确定", { if (!vm.confirmArtistInput()) picker = AlbumPicker.Artist }, Modifier.weight(1f), loading = vm.artistLoading, icon = Icons.Rounded.Check)
                                 SoftButton("搜索艺人", { picker = AlbumPicker.Artist }, icon = Icons.Rounded.Search, contentPadding = PaddingValues(horizontal = 16.dp, vertical = 15.dp))
                             }
                         }
@@ -529,6 +531,7 @@ fun AlbumScreen(graph: AppGraph) {
             onDismiss = { picker = AlbumPicker.None },
             allowNew = false,
             title = "搜索艺人",
+            initialQuery = vm.artistInput.takeIf { Links.parseArtistId(it) == null }?.trim().orEmpty(),
         )
         AlbumPicker.AlbumArtists -> ArtistPickerSheet(vm::searchArtists, { vm.albumArtists = vm.albumArtists + it; picker = AlbumPicker.None }, { picker = AlbumPicker.None })
         AlbumPicker.Subtitles -> LinesEditorSheet("副标题", "每行一个，例：游戏《xx》原声集", vm.subtitles, { vm.subtitles = it; picker = AlbumPicker.None }) { picker = AlbumPicker.None }

@@ -10,12 +10,15 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -70,6 +73,7 @@ private fun Sheet(title: String, onDismiss: () -> Unit, content: @Composable () 
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .navigationBarsPadding()
+                .imePadding()
                 .padding(bottom = 16.dp),
         ) {
             Text(title, style = MaterialTheme.typography.titleLarge)
@@ -88,8 +92,11 @@ fun ArtistPickerSheet(
     onDismiss: () -> Unit,
     allowNew: Boolean = true,
     title: String = "选择艺人",
+    initialQuery: String = "",
 ) {
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf(initialQuery) }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     var results by remember { mutableStateOf<List<WikiArtist>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -110,6 +117,7 @@ fun ArtistPickerSheet(
     Sheet(title, onDismiss) {
         AppTextField(
             query, { query = it }, "艺人名或艺人 ID",
+            modifier = Modifier.focusRequester(focus),
             leading = Icons.Rounded.Search, imeAction = ImeAction.Search,
             trailing = { if (loading) androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) },
         )
@@ -215,7 +223,9 @@ fun TagPickerSheet(
         loading = false
     }
     Sheet("曲风（最多 3 个）", onDismiss) {
-        AppTextField(query, { query = it }, "搜索曲风", leading = Icons.Rounded.Search)
+        val focus = remember { FocusRequester() }
+        LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+        AppTextField(query, { query = it }, "搜索曲风", modifier = Modifier.focusRequester(focus), leading = Icons.Rounded.Search)
         Spacer(Modifier.size(10.dp))
         Reveal(picked.isNotEmpty()) {
             Column {
