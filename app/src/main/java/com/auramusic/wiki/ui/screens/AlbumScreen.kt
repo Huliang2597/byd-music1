@@ -74,6 +74,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.auramusic.wiki.AppGraph
+import com.auramusic.wiki.ui.LocalBottomBarSpace
 import com.auramusic.wiki.data.ArtistDetail
 import com.auramusic.wiki.data.Images
 import com.auramusic.wiki.data.Links
@@ -372,7 +373,7 @@ fun AlbumScreen(graph: AppGraph) {
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp + LocalBottomBarSpace.current),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item(key = "header") {

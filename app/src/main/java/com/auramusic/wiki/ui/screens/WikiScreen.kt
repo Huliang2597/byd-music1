@@ -65,6 +65,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.auramusic.wiki.AppGraph
+import com.auramusic.wiki.ui.LocalBottomBarSpace
 import com.auramusic.wiki.data.Links
 import com.auramusic.wiki.data.PublicWiki
 import com.auramusic.wiki.ui.LocalNav
@@ -189,7 +190,7 @@ fun WikiScreen(graph: AppGraph) {
 
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        contentPadding = PaddingValues(bottom = 24.dp + LocalBottomBarSpace.current),
     ) {
         item(key = "header") {
             Box(Modifier.statusBarsPadding()) {

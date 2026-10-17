@@ -63,6 +63,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.auramusic.wiki.AppGraph
+import com.auramusic.wiki.ui.LocalBottomBarSpace
 import com.auramusic.wiki.data.NosFile
 import com.auramusic.wiki.data.PublicWiki
 import com.auramusic.wiki.data.SongDetail
@@ -325,7 +326,7 @@ fun SongScreen(graph: AppGraph) {
 private fun SongSearch(vm: SongViewModel) {
     val toast = LocalToast.current
     val focus = LocalFocusManager.current
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 24.dp + LocalBottomBarSpace.current)) {
         item(key = "header") {
             Box(Modifier.statusBarsPadding()) { PageHeader("歌曲资料共创", "补充或修改歌曲名、作词作曲、歌词与翻译，或报告并替换错误的音频。") }
         }
@@ -388,7 +389,7 @@ private fun SongEditor(vm: SongViewModel, id: Long) {
     var picker by remember { mutableStateOf(Picker.NONE) }
     val audioPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> uri?.let(vm::uploadAudio) }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp + LocalBottomBarSpace.current), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item(key = "header") {
             Box(Modifier.statusBarsPadding()) {
                 PageHeader("歌曲 $id", edit?.detail?.let { "${it.name} · ${it.albumName}" }, onBack = { vm.close() })

@@ -79,6 +79,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.auramusic.wiki.AppGraph
+import com.auramusic.wiki.ui.LocalBottomBarSpace
 import com.auramusic.wiki.data.NeteaseAuth
 import com.auramusic.wiki.data.QrState
 import com.auramusic.wiki.ui.LocalNav
@@ -158,7 +159,7 @@ fun LoginScreen(graph: AppGraph) {
             Spacer(Modifier.width(6.dp))
             Hint("凭据仅在本机保存并发往网易云。扫码受限时，可用上方官网登录完成验证。")
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(8.dp + LocalBottomBarSpace.current))
     }
 }
 

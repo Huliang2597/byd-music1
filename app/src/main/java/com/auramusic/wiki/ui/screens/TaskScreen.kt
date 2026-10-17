@@ -63,6 +63,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.auramusic.wiki.AppGraph
+import com.auramusic.wiki.ui.LocalBottomBarSpace
 import com.auramusic.wiki.data.Links
 import com.auramusic.wiki.data.Page
 import com.auramusic.wiki.data.Recommend
@@ -275,7 +276,7 @@ private fun TaskHome(vm: TaskViewModel) {
 @Composable
 private fun RecommendTab(vm: TaskViewModel) {
     LaunchedEffect(Unit) { vm.loadRecommend() }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalBottomBarSpace.current), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         stateItems(vm.recommend, { vm.loadRecommend(true) }, "暂时没有推荐任务") { list ->
             list.forEachIndexed { index, rec ->
                 item(key = "rec-${rec.group.missionId}-$index") {
@@ -302,7 +303,7 @@ private fun RecommendTab(vm: TaskViewModel) {
 private fun GroupsTab(vm: TaskViewModel, type: Int) {
     LaunchedEffect(type) { vm.loadGroups(type) }
     val target = vm.groupsOf(type)
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalBottomBarSpace.current), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         stateItems(target, { vm.loadGroups(type, true) }, "没有任务") { list ->
             itemsIndexed(list, key = { i, g -> "${g.missionId}-$i" }) { index, group ->
                 Box(
@@ -408,7 +409,7 @@ private fun toneOf(status: Int) = when (status) {
 private fun TaskDetail(vm: TaskViewModel, group: TaskGroup, type: Int) {
     val focus = LocalFocusManager.current
     val context = LocalContext.current
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp + LocalBottomBarSpace.current), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(key = "header") {
             Box(Modifier.statusBarsPadding()) { PageHeader(group.name, onBack = { vm.group = null }) }
         }
@@ -481,7 +482,7 @@ private fun TaskDetail(vm: TaskViewModel, group: TaskGroup, type: Int) {
 @Composable
 private fun MyTasksTab(vm: TaskViewModel) {
     LaunchedEffect(vm.myType, vm.myStatus, vm.myPage) { vm.loadMine() }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 16.dp + LocalBottomBarSpace.current), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item(key = "filters") {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

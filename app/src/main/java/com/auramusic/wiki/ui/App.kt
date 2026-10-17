@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -68,6 +67,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -126,6 +126,9 @@ class AppNav(initial: Tab) {
 
 val LocalNav = staticCompositionLocalOf<AppNav> { error("no nav") }
 
+/** 悬浮底栏占用的高度：页面内容会滚到底栏下方，列表底部需要留出这段空间。 */
+val LocalBottomBarSpace = compositionLocalOf { 0.dp }
+
 @Composable
 fun WikiApp() {
     val context = LocalContext.current
@@ -168,14 +171,13 @@ fun WikiApp() {
                     }
                 },
             ) { padding ->
+                CompositionLocalProvider(LocalBottomBarSpace provides padding.calculateBottomPadding()) {
                 AnimatedContent(
                     targetState = nav.tab,
                     transitionSpec = { fadeIn(tween(220, delayMillis = 60)) togetherWith fadeOut(tween(120)) },
                     label = "tabs",
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding)
-                        .consumeWindowInsets(padding)
                         .imePadding(),
                 ) { tab ->
                     val needsLogin = tab != Tab.WIKI && !loggedIn
@@ -196,6 +198,7 @@ fun WikiApp() {
                             }
                         }
                     }
+                }
                 }
             }
 

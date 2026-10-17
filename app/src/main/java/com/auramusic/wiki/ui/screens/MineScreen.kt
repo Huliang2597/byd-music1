@@ -53,6 +53,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.auramusic.wiki.AppGraph
+import com.auramusic.wiki.ui.LocalBottomBarSpace
 import com.auramusic.wiki.data.Channel
 import com.auramusic.wiki.data.Contribution
 import com.auramusic.wiki.data.Devote
@@ -123,7 +124,7 @@ fun MineScreen(graph: AppGraph) {
     LaunchedEffect(Unit) { vm.loadDevote() }
     LaunchedEffect(vm.type, vm.status, vm.page) { vm.load() }
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp + LocalBottomBarSpace.current), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item(key = "profile") {
             Column(
                 Modifier
