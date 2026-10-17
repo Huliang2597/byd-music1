@@ -104,6 +104,7 @@ class NeteaseSession(context: Context) {
             800 -> QrStatus(QrState.EXPIRED, message = "二维码已过期，请刷新")
             801 -> QrStatus(QrState.WAITING)
             802 -> QrStatus(QrState.SCANNED, nickname = res.optString("nickname"))
+            8821 -> QrStatus(QrState.VERIFY)
             803 -> {
                 accept(NeteaseAuth.authenticateCookie(res.optString("cookie")))
                 QrStatus(QrState.CONFIRMED)

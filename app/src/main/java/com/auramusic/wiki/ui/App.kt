@@ -266,11 +266,6 @@ private fun NavItem(tab: Tab, selected: Boolean, onClick: () -> Unit) {
         tween(260),
         label = "navTint",
     )
-    val bounce by animateFloatAsState(
-        if (selected) 1.12f else 1f,
-        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
-        label = "navBounce",
-    )
     Row(
         Modifier
             .clip(CircleShape)
@@ -284,13 +279,13 @@ private fun NavItem(tab: Tab, selected: Boolean, onClick: () -> Unit) {
                 if (on) tab.selectedIcon else tab.icon,
                 contentDescription = tab.label,
                 tint = tint,
-                modifier = Modifier.size(24.dp).graphicsLayer { scaleX = bounce; scaleY = bounce },
+                modifier = Modifier.size(24.dp),
             )
         }
         AnimatedVisibility(
             selected,
-            enter = expandHorizontally(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)) + fadeIn(tween(200)),
-            exit = shrinkHorizontally(tween(220)) + fadeOut(tween(120)),
+            enter = expandHorizontally(tween(260, easing = FastOutSlowInEasing)) + fadeIn(tween(200, delayMillis = 60)),
+            exit = shrinkHorizontally(tween(260, easing = FastOutSlowInEasing)) + fadeOut(tween(120)),
         ) {
             Row {
                 Spacer(Modifier.width(8.dp))

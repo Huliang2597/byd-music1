@@ -10,7 +10,7 @@ enum class Channel(val label: String) {
     WEAPI("网页通道 (weapi)"),
 }
 
-enum class QrState { WAITING, SCANNED, CONFIRMED, EXPIRED, ERROR }
+enum class QrState { WAITING, SCANNED, CONFIRMED, EXPIRED, VERIFY, ERROR }
 
 data class QrStatus(val state: QrState, val nickname: String? = null, val message: String? = null)
 

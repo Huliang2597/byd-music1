@@ -54,9 +54,9 @@ class NeteaseAuth private constructor() {
             .url("https://music.163.com/weapi/" + path.removePrefix("/api/"))
             .post(body)
             .header("Accept", "application/json")
-            .header("User-Agent", Http.APP_UA)
+            .header("User-Agent", Http.CHROME_UA)
             .header("Origin", "https://music.163.com")
-            .header("Referer", "https://music.163.com/st/webplayer")
+            .header("Referer", "https://music.163.com/")
             .apply { if (cookies.isNotEmpty()) header("Cookie", cookieHeader(cookies)) }
             .build()
         Http.strict.newCall(request).await().use { response ->
@@ -85,7 +85,11 @@ class NeteaseAuth private constructor() {
         private const val QR_TTL = 300_000L
         private val qrSessions = LinkedHashMap<String, NeteaseAuth>()
 
-        fun qrUrl(key: String) = "https://music.163.com/login?codekey=$key"
+        private val webDeviceId: String = java.util.UUID.randomUUID().toString().replace("-", "").uppercase()
+
+        /** 二维码内容；chainId 与网页版登录一致，缺少时扫码后容易触发风控（8821）。 */
+        fun qrUrl(key: String) =
+            "https://music.163.com/login?codekey=$key&chainId=v1_${webDeviceId}_web_login_${System.currentTimeMillis()}"
 
         suspend fun createQrKey(): String {
             val client = NeteaseAuth()

@@ -86,6 +86,7 @@ import com.auramusic.wiki.ui.components.AppTextField
 import com.auramusic.wiki.ui.components.GradientButton
 import com.auramusic.wiki.ui.components.Hint
 import com.auramusic.wiki.ui.components.LocalToast
+import com.auramusic.wiki.ui.components.Reveal
 import com.auramusic.wiki.ui.components.SectionCard
 import com.auramusic.wiki.ui.components.SoftButton
 import com.auramusic.wiki.ui.components.enterAnimation
@@ -220,10 +221,12 @@ private fun QrLogin(graph: AppGraph) {
     var image by remember { mutableStateOf<Bitmap?>(null) }
     var status by remember { mutableStateOf("正在获取二维码…") }
     var stopped by remember { mutableStateOf(false) }
+    var verifying by remember { mutableStateOf(false) }
     var round by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(round) {
         stopped = false
+        verifying = false
         key = null
         image = null
         status = "正在获取二维码…"
@@ -258,6 +261,10 @@ private fun QrLogin(graph: AppGraph) {
                     status = qr.message ?: "登录失败"
                     stopped = true
                     return@LaunchedEffect
+                }
+                QrState.VERIFY -> {
+                    verifying = true
+                    status = "网易云要求安全验证：请在手机上按提示完成验证并确认登录。长时间无反应可改用下方官网登录。"
                 }
                 QrState.SCANNED -> status = (qr.nickname?.takeIf { it.isNotBlank() } ?: "已扫码") + "，请在手机上确认"
                 QrState.WAITING -> status = "用网易云音乐 App 扫码"
@@ -301,6 +308,21 @@ private fun QrLogin(graph: AppGraph) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Reveal(verifying) {
+            val nav = LocalNav.current
+            SoftButton(
+                "改用官网登录",
+                {
+                    nav.officialLogin = { result ->
+                        runCatching { graph.session.accept(result) }
+                            .onSuccess { toast("已登录：${it.nickname}") }
+                            .onFailure { toast(it.message ?: "登录失败") }
+                    }
+                },
+                Modifier.fillMaxWidth(),
+                icon = Icons.Rounded.Language,
             )
         }
     }
