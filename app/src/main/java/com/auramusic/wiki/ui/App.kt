@@ -23,6 +23,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -169,12 +170,7 @@ fun WikiApp() {
             ) { padding ->
                 AnimatedContent(
                     targetState = nav.tab,
-                    transitionSpec = {
-                        val forward = targetState.ordinal > initialState.ordinal
-                        val direction = if (forward) 1 else -1
-                        (slideInHorizontally(tween(340, easing = FastOutSlowInEasing)) { it / 6 * direction } + fadeIn(tween(280)))
-                            .togetherWith(slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { -it / 8 * direction } + fadeOut(tween(200)))
-                    },
+                    transitionSpec = { fadeIn(tween(220, delayMillis = 60)) togetherWith fadeOut(tween(120)) },
                     label = "tabs",
                     modifier = Modifier
                         .fillMaxSize()
@@ -205,7 +201,7 @@ fun WikiApp() {
 
             AnimatedVisibility(
                 nav.artistEditor,
-                enter = slideInVertically(spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow)) { it / 3 } + fadeIn(tween(220)),
+                enter = slideInVertically(tween(280, easing = FastOutSlowInEasing)) { it / 4 } + fadeIn(tween(220)),
                 exit = slideOutVertically(tween(260)) { it / 3 } + fadeOut(tween(200)),
             ) {
                 BackHandler { nav.artistEditor = false }
@@ -232,66 +228,67 @@ private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(horizontal = 14.dp, vertical = 10.dp),
-        contentAlignment = Alignment.Center,
     ) {
         Surface(
             shape = RoundedCornerShape(30.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.97f),
             shadowElevation = 10.dp,
             tonalElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
-                Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                Modifier.padding(horizontal = 6.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Tab.entries.forEach { tab ->
-                    NavItem(tab, tab == current) { onSelect(tab) }
+                    NavItem(tab, tab == current, Modifier.weight(1f)) { onSelect(tab) }
                 }
             }
         }
     }
 }
 
+/** 固定宽度的导航项：切换时只渐变颜色，不改变任何尺寸。 */
 @Composable
-private fun NavItem(tab: Tab, selected: Boolean, onClick: () -> Unit) {
+private fun NavItem(tab: Tab, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val background by animateColorAsState(
         if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0f),
-        tween(260),
+        tween(220),
         label = "navBg",
     )
     val tint by animateColorAsState(
         if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-        tween(260),
+        tween(220),
         label = "navTint",
     )
-    Row(
-        Modifier
-            .clip(CircleShape)
-            .background(background)
-            .clickable(interaction, indication = androidx.compose.material3.ripple(), onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    val labelColor by animateColorAsState(
+        if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+        tween(220),
+        label = "navLabel",
+    )
+    Column(
+        modifier
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(interaction, indication = null, onClick = onClick)
+            .padding(vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AnimatedContent(selected, transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) }, label = "navIcon") { on ->
+        Box(
+            Modifier
+                .size(width = 56.dp, height = 32.dp)
+                .clip(CircleShape)
+                .background(background),
+            contentAlignment = Alignment.Center,
+        ) {
             Icon(
-                if (on) tab.selectedIcon else tab.icon,
+                if (selected) tab.selectedIcon else tab.icon,
                 contentDescription = tab.label,
                 tint = tint,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(22.dp),
             )
         }
-        AnimatedVisibility(
-            selected,
-            enter = expandHorizontally(tween(260, easing = FastOutSlowInEasing)) + fadeIn(tween(200, delayMillis = 60)),
-            exit = shrinkHorizontally(tween(260, easing = FastOutSlowInEasing)) + fadeOut(tween(120)),
-        ) {
-            Row {
-                Spacer(Modifier.width(8.dp))
-                Text(tab.label, style = MaterialTheme.typography.labelLarge, color = tint)
-            }
-        }
+        Spacer(Modifier.height(4.dp))
+        Text(tab.label, style = MaterialTheme.typography.labelMedium, color = labelColor)
     }
 }
-

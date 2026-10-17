@@ -105,25 +105,21 @@ fun Modifier.pressScale(interaction: MutableInteractionSource, pressed: Float = 
     val isPressed by interaction.collectIsPressedAsState()
     val scale by animateFloatAsState(
         if (isPressed) pressed else 1f,
-        spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        tween(120),
         label = "press",
     )
     this.graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
-/** 列表项首次出现时淡入并上浮，按序号错开。 */
+/** 列表项首次出现时淡入，按序号轻微错开（不做位移，避免跳动感）。 */
 fun Modifier.enterAnimation(index: Int = 0, key: Any? = Unit): Modifier = composed {
     if (LocalReduceMotion.current) return@composed this
     val progress = remember(key) { Animatable(0f) }
-    val distance = with(LocalDensity.current) { 24.dp.toPx() }
     LaunchedEffect(key) {
-        kotlinx.coroutines.delay((index.coerceAtMost(10) * 45).toLong())
-        progress.animateTo(1f, tween(420, easing = FastOutSlowInEasing))
+        kotlinx.coroutines.delay((index.coerceAtMost(8) * 30).toLong())
+        progress.animateTo(1f, tween(260, easing = FastOutSlowInEasing))
     }
-    this.graphicsLayer {
-        alpha = progress.value
-        translationY = (1f - progress.value) * distance
-    }
+    this.graphicsLayer { alpha = progress.value }
 }
 
 /** 骨架屏的流光效果。 */

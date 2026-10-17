@@ -14,7 +14,7 @@ import org.json.JSONObject
 object Http {
     const val CHROME_UA =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
-    const val APP_UA = "WikiUploader/1.2.1 (Android)"
+    const val APP_UA = "WikiUploader/1.2.2 (Android)"
 
     /** 不跟随跳转、超时较短，用于登录、短链解析和公开图片。 */
     val strict: OkHttpClient = OkHttpClient.Builder()
