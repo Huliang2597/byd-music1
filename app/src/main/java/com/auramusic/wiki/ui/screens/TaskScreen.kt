@@ -304,7 +304,7 @@ private fun GroupsTab(vm: TaskViewModel, type: Int) {
     val target = vm.groupsOf(type)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         stateItems(target, { vm.loadGroups(type, true) }, "没有任务") { list ->
-            itemsIndexed(list, key = { _, g -> g.missionId }) { index, group ->
+            itemsIndexed(list, key = { i, g -> "${g.missionId}-$i" }) { index, group ->
                 Box(
                     Modifier
                         .animateItem()

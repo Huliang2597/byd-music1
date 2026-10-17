@@ -13,8 +13,8 @@ android {
         applicationId = "com.auramusic.wiki"
         minSdk = 26
         targetSdk = 35
-        versionCode = 110
-        versionName = "1.2.2"
+        versionCode = 111
+        versionName = "1.2.3"
     }
 
     buildTypes {

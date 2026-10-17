@@ -27,7 +27,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -233,7 +232,7 @@ fun WikiScreen(graph: AppGraph) {
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.animateItem(),
                 ) {
-                    items(vm.history, key = { it.first }) { (id, name) ->
+                    itemsIndexed(vm.history, key = { i, h -> "${h.first}-$i" }) { _, (id, name) ->
                         AssistChip(
                             onClick = { vm.input = id; vm.query(id) },
                             label = { Text(name.ifBlank { id }, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = IntrinsicWidthLimit)) },

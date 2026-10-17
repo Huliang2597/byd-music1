@@ -541,7 +541,7 @@ fun ArtistEditorScreen(graph: AppGraph, query: String?, onClose: () -> Unit) {
                     }
                 }
             }
-            itemsIndexed(vm.matches, key = { _, m -> "match-" + m.optString("artistId") }) { index, match ->
+            itemsIndexed(vm.matches, key = { i, m -> "match-" + m.optString("artistId") + "-$i" }) { index, match ->
                 val id = match.optString("artistId")
                 Row(
                     Modifier

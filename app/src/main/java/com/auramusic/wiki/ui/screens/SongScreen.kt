@@ -349,7 +349,7 @@ private fun SongSearch(vm: SongViewModel) {
             vm.searching && hits == null -> item(key = "loading") { SkeletonList(5, Modifier.padding(16.dp)) }
             hits == null -> item(key = "empty") { EmptyState("输入歌名或粘贴分享链接开始", Modifier.padding(16.dp), Icons.Rounded.MusicNote) }
             hits.isEmpty() -> item(key = "none") { EmptyState("没有找到相关歌曲", Modifier.padding(16.dp)) }
-            else -> itemsIndexed(hits, key = { _, h -> h.id }) { index, hit ->
+            else -> itemsIndexed(hits, key = { i, h -> "${h.id}-$i" }) { index, hit ->
                 Row(
                     Modifier
                         .animateItem()
